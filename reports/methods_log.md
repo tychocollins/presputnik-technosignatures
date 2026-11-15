@@ -54,6 +54,13 @@ This log records the end-to-end methodology, exact parameters, and verified mile
 
 ---
 
-## Phase 2b: Unblinded Earth-Shadow Test (Pending External Timestamp & Explicit User Sign-Off)
+## Phase 2b: Unblinded Earth-Shadow Test (Pre-Registration Timestamped on OSF)
 
-- *Strictly blinded (`0` exposures with `shadow_fraction > 0` accessed). Ready for OSF/Zenodo timestamping of `reports/preregistration_amendment1.pdf` prior to unblinding.*
+- **External Pre-Unblinding OSF Registration Recorded (`2026-11-15`, strictly prior to accessing any `shadow_fraction > 0` plate):**
+  - **OSF Registration DOI:** `10.17605/OSF.IO/5PQDZ` (`https://doi.org/10.17605/OSF.IO/5PQDZ`)
+  - **OSF Associated Project:** `https://osf.io/h7rqn`
+  - **Timestamped File:** `reports/preregistration_amendment1.pdf` (`SHA-256: 67c2321a280b62e03fd97a70df1e837940db05b9c28d9c6c5a7fc058f0e0ef3a`)
+  - **Frozen Analysis Code & Calibration Commit:** `a41c00421f968b1c0c46f75c7c765b4406da72c0`
+  - **Frozen Pre-Registration PDF Commit:** `584dda36f9441c9b83b0f06ad0cbf9ee1eb5f655`
+  - **Pre-Unblinding Power & Role Disclosures Logged:** Primary test (`Single-Plate Tier A+B, m_flash >= 9.0`, `32 × 32` Gaia DR3 star-density control, `>= 1,000` time-shifted 3D ecliptic umbral placebos) measured power at a `30%` deficit is `77.9%` (depth-scaled) / `94.7%` (unscaled), below the nominal `80%` gate; proceeding without post-hoc sample expansion and with explicit disclosure. Strict Paired Tier A (`m_flash >= 8.0`, partner-vetoed) measured power at `30%` is `19.4%` (depth-scaled) / `22.3%` (unscaled) and serves strictly as a directional concordance check (`RR_MH < 1`). Candidate shape/morphology cuts are automated/AI-reviewed (not human-checked); partner-plate absence passed blind human audit (`0 / 50` leaks).
+  - **Zero `shadow_fraction > 0` exposures accessed as of this commit.**

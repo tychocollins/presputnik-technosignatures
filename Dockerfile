@@ -2,7 +2,8 @@ FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    MPLCONFIGDIR=/tmp/mpl
 
 WORKDIR /app
 
@@ -13,10 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy only the pipeline code and the pre-verified strictly-sunlit sample (74 KB).
-# Shadow plates and exposures.parquet are intentionally excluded from this image.
+# Copy frozen pipeline code and the pre-built Phase 2b manifest (~210 KB, embeds APPLAUSE scan URLs).
 COPY src/ ./src/
-COPY data/processed/sunlit_m8_sample.parquet ./data/processed/sunlit_m8_sample.parquet
+COPY data/processed/phase2b_manifest.parquet ./data/processed/phase2b_manifest.parquet
 
-# Run ONLY the strictly-sunlit m_flash >= 8.0 processor.
-CMD ["python", "-u", "-m", "src.process_sunlit_m8"]
+# Run Phase 2b extraction across Stages A -> B -> C (packaging Core A+B early and full A+B+C at end).
+CMD ["python", "-u", "-m", "src.phase2b_extract", "--stages", "A", "B", "C"]

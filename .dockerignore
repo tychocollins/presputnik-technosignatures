@@ -5,5 +5,6 @@
 !data/
 !data/processed/
 !data/processed/sunlit_m8_sample.parquet
+!data/processed/phase2b_manifest.parquet
 **/__pycache__/
 **/*.pyc

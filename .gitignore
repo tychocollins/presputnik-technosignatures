@@ -4,10 +4,12 @@ __pycache__/
 *.pyo
 .DS_Store
 
-# Keep local data out of git except the 74 KB sunlit_m8_sample.parquet needed by Render
+# Keep local data out of git except small manifests/tables needed for reproducibility & Render
 data/*
 !data/processed/
 data/processed/*
 !data/processed/sunlit_m8_sample.parquet
+!data/processed/phase2b_manifest.parquet
+!data/processed/phase2b_paired_tierA_links.parquet
 !data/processed/final_frozen_power_calibration.csv
 !data/processed/blind_human_audit_50_v2_human_labels.csv

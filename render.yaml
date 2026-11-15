@@ -1,19 +1,19 @@
 services:
   - type: worker
-    name: sunlit-m8-worker
+    name: phase2b-worker
     runtime: docker
     region: virginia
     plan: pro_plus
     dockerfilePath: ./Dockerfile
     autoDeploy: false
     disk:
-      name: sunlit-m8-data
+      name: phase2b-data
       mountPath: /data
-      sizeGB: 20
+      sizeGB: 25
     envVars:
       - key: OUTPUT_DIR
         value: /data
       - key: MAX_WORKERS
-        value: "1"
+        value: "3"
       - key: PYTHONUNBUFFERED
         value: "1"

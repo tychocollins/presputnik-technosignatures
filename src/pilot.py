@@ -147,8 +147,8 @@ def _compute_rms_grid(rms_map: np.ndarray, mask: np.ndarray, n_grid: int = 8) ->
 
 def extract_stamp_60as(
     data_sub: np.ndarray,
-    rms_img: np.ndarray,
-    sat_mask: np.ndarray,
+    rms_img: np.ndarray | float,
+    sat_mask: np.ndarray | None,
     wcs: WCS,
     ra: float,
     dec: float,
@@ -177,10 +177,17 @@ def extract_stamp_60as(
     if sx1 > sx0 and sy1 > sy0:
         dx0, dy0 = sx0 - x0, sy0 - y0
         dx1, dy1 = dx0 + (sx1 - sx0), dy0 + (sy1 - sy0)
-        snr_stamp[dy0:dy1, dx0:dx1] = (
-            data_sub[sy0:sy1, sx0:sx1] / np.maximum(rms_img[sy0:sy1, sx0:sx1], 1e-6)
-        ).astype(np.float32)
-        sat_stamp[dy0:dy1, dx0:dx1] = sat_mask[sy0:sy1, sx0:sx1]
+        sub_patch = data_sub[sy0:sy1, sx0:sx1]
+        if isinstance(rms_img, np.ndarray):
+            rms_patch = np.maximum(rms_img[sy0:sy1, sx0:sx1], 1e-6)
+        else:
+            rms_patch = max(float(rms_img), 1e-6)
+        snr_patch = (sub_patch / rms_patch).astype(np.float32)
+        snr_stamp[dy0:dy1, dx0:dx1] = snr_patch
+        if sat_mask is not None:
+            sat_stamp[dy0:dy1, dx0:dx1] = sat_mask[sy0:sy1, sx0:sx1]
+        else:
+            sat_stamp[dy0:dy1, dx0:dx1] = (~np.isfinite(snr_patch)) | (snr_patch < -5.0)
     return snr_stamp, sat_stamp, ps, hits_border
 
 
@@ -209,7 +216,8 @@ def _extract_plate_sources(
                 return None
 
             data = np.ascontiguousarray(hdu.data, dtype=np.float32)
-            hdr = hdu.header
+            hdr = hdu.header.copy()
+            del hdu.data
             ny, nx = data.shape
 
             # Handle TNX projection or missing celestial WCS (use APPLAUSE solution header_wcs)
@@ -243,16 +251,6 @@ def _extract_plate_sources(
     p05, p50, p995 = np.percentile(valid_vals, [0.5, 50.0, 99.5])
     if (p50 - p05) > 1.3 * (p995 - p50):
         data *= -1.0
-        valid_vals *= -1.0
-
-    # Flag clipped/saturated plateaus before background subtraction
-    sat_mask = (~np.isfinite(data)) | (data == 0)
-    v_max = float(np.max(valid_vals))
-    v_min = float(np.min(valid_vals))
-    if np.sum(valid_vals >= v_max - 1e-6) > 5:
-        sat_mask |= data >= v_max - 1e-6
-    if np.sum(valid_vals <= v_min + 1e-6) > 5:
-        sat_mask |= data <= v_min + 1e-6
     del valid_vals, sub_d, sub_m
 
     bkg = sep.Background(data, mask=mask, bw=128, bh=128, fw=3, fh=3)
@@ -262,21 +260,18 @@ def _extract_plate_sources(
     if not np.isfinite(rms) or rms <= 0:
         return None
 
-    rms_img = bkg.rms()
-    np.maximum(rms_img, 1e-6, out=rms_img)
-    # Flag negative wrap-around / emulsion holes in background-subtracted image
-    sat_mask |= data_sub < -5.0 * rms_img
-
-    rms_grid, med_rms = _compute_rms_grid(rms_img, mask, n_grid=8)
+    rms_grid, med_rms = _compute_rms_grid(bkg.rms(), mask, n_grid=8)
+    del bkg
 
     # Disable multi-threshold deblending (deblend_nthresh=1) to prevent overflow on plate artifacts
     sep.set_extract_pixstack(2_000_000)
     objs = sep.extract(data_sub, thresh=6.0 * rms, mask=mask, minarea=7, deblend_nthresh=1, deblend_cont=1.0)
+    del mask
     cols = ["ra", "dec", "x", "y", "flux", "a", "b", "ellip", "r_psf", "npix", "flag", "psf_pass", "peak_snr", "min3_snr", "n_sat_pix"]
     if len(objs) == 0:
         empty_df = pd.DataFrame(columns=cols)
         if return_image:
-            return empty_df, wcs, (ny, nx), 3.0, rms_grid, med_rms, {"data_sub": data_sub, "rms_img": rms_img, "sat_mask": sat_mask}
+            return empty_df, wcs, (ny, nx), 3.0, rms_grid, med_rms, {"data_sub": data_sub, "rms_img": med_rms, "sat_mask": None}
         return empty_df, wcs, (ny, nx), 3.0, rms_grid, med_rms
 
     df = pd.DataFrame(
@@ -300,19 +295,25 @@ def _extract_plate_sources(
     n_sat_pix = np.zeros(n_obj, dtype=np.int32)
     xs_i = np.rint(df["x"].to_numpy()).astype(int)
     ys_i = np.rint(df["y"].to_numpy()).astype(int)
+    ng = rms_grid.shape[0]
     for idx_o in range(n_obj):
         ix, iy = xs_i[idx_o], ys_i[idx_o]
+        gx = min(ng - 1, max(0, int(ix / max(nx, 1) * ng)))
+        gy = min(ng - 1, max(0, int(iy / max(ny, 1) * ng)))
+        r_loc = float(rms_grid[gy, gx])
+        if not np.isfinite(r_loc) or r_loc <= 0:
+            r_loc = max(med_rms, 1e-6)
         x0, x1 = max(0, ix - 1), min(nx, ix + 2)
         y0, y1 = max(0, iy - 1), min(ny, iy + 2)
         if x1 > x0 and y1 > y0:
-            r_loc = float(np.median(rms_img[y0:y1, x0:x1]))
             p3 = data_sub[y0:y1, x0:x1]
             peak_snr[idx_o] = float(np.max(p3)) / r_loc
             min3_snr[idx_o] = float(np.min(p3)) / r_loc
         sx0, sx1 = max(0, ix - 2), min(nx, ix + 3)
         sy0, sy1 = max(0, iy - 2), min(ny, iy + 3)
         if sx1 > sx0 and sy1 > sy0:
-            n_sat_pix[idx_o] = int(np.sum(sat_mask[sy0:sy1, sx0:sx1]))
+            p5 = data_sub[sy0:sy1, sx0:sx1]
+            n_sat_pix[idx_o] = int(np.sum((~np.isfinite(p5)) | (p5 < -5.0 * r_loc)))
     df["peak_snr"] = peak_snr
     df["min3_snr"] = min3_snr
     df["n_sat_pix"] = n_sat_pix

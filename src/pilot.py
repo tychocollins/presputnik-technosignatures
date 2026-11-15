@@ -234,9 +234,11 @@ def _extract_plate_sources(
     mask[:, :mx] = True
     mask[:, -mx:] = True
 
-    # Auto-detect polarity (photographic negatives can be sky-bright or sky-dark)
-    valid_vals = data[np.isfinite(data) & (~mask)]
-    if len(valid_vals) < 1000:
+    # Auto-detect polarity on a 4x4 strided subsample (~16x less RAM & 16x faster)
+    sub_d = data[::4, ::4]
+    sub_m = mask[::4, ::4]
+    valid_vals = sub_d[np.isfinite(sub_d) & (~sub_m)]
+    if len(valid_vals) < 500:
         return None
     p05, p50, p995 = np.percentile(valid_vals, [0.5, 50.0, 99.5])
     if (p50 - p05) > 1.3 * (p995 - p50):
@@ -247,11 +249,11 @@ def _extract_plate_sources(
     sat_mask = (~np.isfinite(data)) | (data == 0)
     v_max = float(np.max(valid_vals))
     v_min = float(np.min(valid_vals))
-    if np.sum(valid_vals >= v_max - 1e-6) > 10:
+    if np.sum(valid_vals >= v_max - 1e-6) > 5:
         sat_mask |= data >= v_max - 1e-6
-    if np.sum(valid_vals <= v_min + 1e-6) > 10:
+    if np.sum(valid_vals <= v_min + 1e-6) > 5:
         sat_mask |= data <= v_min + 1e-6
-    del valid_vals
+    del valid_vals, sub_d, sub_m
 
     bkg = sep.Background(data, mask=mask, bw=128, bh=128, fw=3, fh=3)
     bkg.subfrom(data)

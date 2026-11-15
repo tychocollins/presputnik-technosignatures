@@ -152,6 +152,7 @@ def process_single_sunlit_plate(
         return {"exposure_id": eid, "plate_id": pid, "instrument": row["instrument"], "status": "extract_failed", "qc_pass": False}, []
 
     df_all, wcs, (ny, nx), med_r, rms_grid, med_rms, img = ext
+    print(f"  extracted {eid} shape=({ny},{nx}) n_src={len(df_all)} ({time.time()-t0:.1f}s)", flush=True)
     df_all, qc, local_grid = calibrate_plate(
         df_all, wcs, nx, ny, float(row["mjd_mid"]), float(row["m_lim"]), float(row["exptime_sec"]),
         rms_grid=rms_grid, med_rms=med_rms,
@@ -333,7 +334,7 @@ def run_sunlit_m8(n_target: int = 400, max_workers: int = 2) -> None:
 
     todo = sample[~sample["exposure_id"].isin(done_ids)].reset_index(drop=True)
     _assert_strictly_sunlit(todo)
-    print(f"Sunlit m_flash>=8.0 set: {len(sample)} total, {len(done_ids)} already done, {len(todo)} remaining.", flush=True)
+    print(f"Sunlit m_flash>=8.0 set: {len(sample)} total, {len(done_ids)} already done, {len(todo)} remaining (max_workers={max_workers}).", flush=True)
 
     if len(todo) > 0:
         app_pids = todo.loc[todo["source_archive"] == "APPLAUSE", "plate_id"].astype(str).tolist()

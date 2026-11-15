@@ -254,17 +254,18 @@ def _extract_plate_sources(
     del valid_vals
 
     bkg = sep.Background(data, mask=mask, bw=128, bh=128, fw=3, fh=3)
-    data -= bkg.back()
+    bkg.subfrom(data)
     data_sub = data
-    rms_img = np.maximum(bkg.rms(), 1e-6)
     rms = float(bkg.globalrms)
     if not np.isfinite(rms) or rms <= 0:
         return None
 
+    rms_img = bkg.rms()
+    np.maximum(rms_img, 1e-6, out=rms_img)
     # Flag negative wrap-around / emulsion holes in background-subtracted image
     sat_mask |= data_sub < -5.0 * rms_img
 
-    rms_grid, med_rms = _compute_rms_grid(bkg.rms(), mask, n_grid=8)
+    rms_grid, med_rms = _compute_rms_grid(rms_img, mask, n_grid=8)
 
     # Disable multi-threshold deblending (deblend_nthresh=1) to prevent overflow on plate artifacts
     sep.set_extract_pixstack(2_000_000)

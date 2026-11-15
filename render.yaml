@@ -3,7 +3,7 @@ services:
     name: sunlit-m8-worker
     runtime: docker
     region: virginia
-    plan: pro
+    plan: pro_plus
     dockerfilePath: ./Dockerfile
     autoDeploy: false
     disk:

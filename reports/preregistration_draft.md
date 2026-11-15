@@ -1,63 +1,76 @@
 # Pre-Registration (Frozen with Amendment 1 — Strictly Pre-Unblinding)
 
-- **Status:** **AMENDED (Amendment 1) — NO-GO at `m_flash >= 9.0`; GO only if expanding to `m_flash >= 8.0`** (`2026-11-14T23:30Z`, strictly pre-unblinding).
-- **Base Code Commit Hash:** `6ccc16d4e16677947a1fface04a216f8da13bcb1` (with Amendment 1 calibration guard in `src/calibrate.py`, audit in `src/audit_cutouts.py`, and power/test modules `src/power_calibration.py`, `src/within_plate_power.py`, `src/test_artifact_filter.py`).
-- **Blindness Guarantee:** **Zero** plates with `shadow_fraction > 0` at `42,164 km`, `36,000 km`, or `20,000 km` have been downloaded, opened, or processed.
+- **Status:** **FROZEN FOR UNBLINDING (Amendment 1 Final — GO on Primary `m_flash >= 9.0` Single-Plate Test with Time-Shifted Ecliptic Placebos, Gaia Star-Density Control & Three-Gate Claim Rule)** (`2026-11-15T18:15Z`, strictly pre-unblinding).
+- **Frozen Analysis Code & Calibration Commit Hash:** `a41c00421f968b1c0c46f75c7c765b4406da72c0` (`src/final_frozen_calibration.py`, `src/aligned_tracks.py`, `src/calibrate.py`, `src/declump_and_mask.py`, `src/process_sunlit_m8.py`, `data/processed/blind_human_audit_50_v2_human_labels.csv`, `data/processed/final_frozen_power_calibration.csv`; builds on Phase 2a base commit `6ccc16d4e16677947a1fface04a216f8da13bcb1`).
+- **Blindness Guarantee:** **Zero** exposures with `shadow_fraction > 0` at `42,164 km`, `36,000 km`, or `20,000 km` have been downloaded, opened, queried for cutouts, or processed (`verified max(shadow_fraction) == 0.0` across all `773` sunlit exposures / `769` unique plates in the `200`-pair pilot and `400`-plate `sunlit_m8` calibration runs).
 
 ---
 
-## Amendment 1: Rationale & Revisions
+## Amendment 1: Pre-Unblinding Discoveries & Safeguards
 
-1. **Empirical Overdispersion Discovery:** Phase 2a's 200-pair blind pilot revealed massive plate-to-plate overdispersion (`alpha_hat = 2.6717`, Poisson `chi2/df = 158.10` unfiltered; `alpha_hat = 2.6778`, `chi2/df = 47.38` after artifact filtering). Treating candidates as independent Poisson counts (initial `6.2%` MDD) was invalid; 500-run placebo calibration of the across-plate NB GLM on sunlit data yielded **`23.6%` power** at a `30%` deficit and `8.4%` analytic FPR.
-2. **Cutout Audit (`N = 150` stratified clean candidates across 84 out-of-shadow plates):**
-   - Classification: **`50.7%` blends** (including saturated/comatic stars missed on the partner plate because partner matching only checked `psf_pass=True` within `10"`), **`28.0%` stellar-looking unexplained**, **`11.3%` plate defects**, **`6.0%` scanner artifacts**, **`4.0%` bright-star halos/spikes**.
-   - Frozen filter, masking & de-clustering (`src/declump_and_mask.py`): match partner against **all** extracted sources within `15.0"`, tighten Plate A morphology (`ellip <= 0.25`, `0.7 * med_r_psf <= r_psf <= 1.8 * med_r_psf`), mask plate edges (`max(5%, 4 * med_r_psf)`) and bright-star annuli (`mag < m_lim_cal - 3.0`, radius `20"–60"` scaled by brightness) with exact masked-area subtraction on a `32 x 32` grid, and merge surviving candidates within `30"` (`60"` tested as sensitivity check) into single events.
-   - Effect on sunlit pilot (`116` QC-passed plates): clean counts reduced from `4,068` candidates to **`1,652` events** (`30"`) / **`1,639` events** (`60"`), Poisson `chi2/df` dropped from `158.10` to **`46.46`** (`30"`) / **`45.95`** (`60"`), `alpha_hat` `2.6717 -> 2.6306` (`30"`) / `2.6166` (`60"`), and `crit_z` tightened from `-5.684` to **`-3.401`** (`Tier A+B`).
-3. **Asteroid Recovery Check:** Initial `22.7%` recovery led to fixing two bugs: SkyBoT `vmag = 0.0` comets and `2/123` QC-passed plates (`DASCH_a27448`, `DASCH_a27455`) where `PchipInterpolator` collapsed `mag_cal` (`IQR < 0.5 mag`). Added an `IQR < 0.5 mag` linear-ZP fallback guard in `src/calibrate.py`. Excluding those 2 plates and `vmag = 0.0`, bright asteroid recovery (`V < min(local_mlim, m_lim_archive) - 1.0`) is **`88.9%` (`8/9`)**.
-
----
-
-## Frozen Primary & Secondary Statistical Design
-
-### 1. Primary Test: Within-Plate Conditional Mantel-Haenszel Test
-- **Sample:** Every QC-passing Tier A plate with partial shadow (`0.05 < shadow_fraction < 0.95`).
-- **Expected In-Shadow Share (`p_i`):** For each plate `i`, partition active area (`[0.05*nx, 0.95*nx] x [0.05*ny, 0.95*ny]`) into `8 x 8` cells weighted by:
-  - `(a)` local detectability (`10^(0.2 * clip(local_mlim_cal - m_lim_cal, -1.5, 1.5))`), and
-  - `(b)` the instrument's 2D spatial defect profile fit on **sunlit plates only** (`shadow_fraction == 0`, empirical-Bayes shrunk toward the global sunlit profile).
-- **Test Statistic:** Conditional on each plate's total clean-candidate count `n_i = n_{in,i} + n_{out,i}`, compute the Mantel-Haenszel Z-statistic `Z_within = sum(n_{in,i} - n_i * p_i) / sqrt(sum(n_i * p_i * (1 - p_i)))` and Mantel-Haenszel rate ratio `RR_MH = sum(n_{in,i} * (1 - p_i)) / sum(n_{out,i} * p_i)`.
-
-### 2. Secondary Tests
-- **Across-Plate NB GLM:** Clean candidate count per plate with `offset = log(eff_area_deg2)`, `instrument` fixed effects, and standardized covariates `|b_ecl|`, `solar_elong_deg`, `lst_midnight_hr`, and `airmass`, testing the `shadow_fraction` rate ratio (fully-in-shadow + partial-shadow vs. sunlit).
-- **Tier B & Dose-Response:** Secondary evaluation on Tier B (`m_flash >= 9.0` / `>= 8.0`) and dose-response across `shadow_fraction` and shadow altitudes (`42,164 km`, `36,000 km`, `20,000 km`).
-
-### 3. Placebo-Calibrated Inference (Target FPR = 5% by Construction)
-- For both primary and secondary tests, the **p-value is the empirical rank** of the observed statistic within **`>= 1,000` placebo statistics** generated by placing real shadow boundary geometries at random angles/offsets on the same plates (not analytic model p-values).
+1. **Empirical Overdispersion & Within-Plate Conditioning:** Phase 2a's 200-pair blind pilot (`shadow_fraction == 0`) revealed severe plate-to-plate count overdispersion (`alpha_hat = 2.6717`, Poisson `chi2/df = 158.10`), invalidating across-plate Poisson power estimates (`23.6%` NB GLM placebo power at a `30%` deficit). Conditioning on each partial-shadow plate's own candidate count (`0.05 < shadow_fraction < 0.95`) eliminates plate-to-plate sensitivity and batch-defect rate variance from the primary test.
+2. **400-Plate `sunlit_m8` Run & Persistent Faint-Star Dilution Measurement:** Processing `400` strictly-sunlit `m_flash >= 8.0` plates (`209 / 400 = 52.3%` `qc_pass == True` across `73` distinct `batch_id` runs; `348` deduplicated QC sunlit plates total when combined with the `139` pilot QC plates) and evaluating single-plate Final Frozen Filter v1.2 candidates against deeper/equal emulsion- and band-matched partner plates (`3,353` candidates across `54` pairs) showed that **`46.9%` (`1,573 / 3,353`)** match a persistent faint or blended stellar source on Plate B within `15.0"`, while **`53.1%` (`1,780 / 3,353`)** are genuinely absent on Plate B. Single-plate shadow deficits are therefore diluted by `×0.531` (before depth scaling), whereas strict partner-vetoed Paired Tier A (`4.01` events/plate across `102` pilot plates, `N = 66` expected QC partial-shadow plates) is purely non-stellar (`×1.0`) but has a measured `80%`-power MDD of **`~55–65%` unscaled** (underpowered on its own for a `30%` VASCO-scale deficit).
+3. **Human Blind Cutout Audit (`N = 50`, `reports/figures/blind_human_audit_50_v2.png`):**
+   - Independent human blind grading of partner presence at the `+` crosshair on Plate B (`yes / near / no`; saved in `data/processed/blind_human_audit_50_v2_human_labels.csv`) scored **`0 / 50` `"yes"` (`0.0%` partner-presence leak rate; one-sided `95%` upper bound `<= 5.8%`, two-sided `95%` CI `[0.0%, 7.1%]`)**, **`4 / 50` `"near"`** (`#07` at `15.44"`, `#25` at `19.20"`, `#28` at `21.45"`/`29.86"`, `#40` at `17.16"` — all outside the frozen `15.0"` partner-veto disc), and **`46 / 50` `"no"`**.
+   - **Explicit Attribution Disclosure:** Only partner-plate absence (`yes / near / no`) is human-verified. **All candidate shape and morphology classifications (`ellip <= 0.20`, `0.7 <= r_psf / med_r_psf <= 1.5`, `conc_pk_9x9 >= 0.03`, and visual defect categories) remain agent-only and are explicitly marked `"not human-verified"`.**
+4. **Two Frozen Pre-Unblinding Safeguards (`src/final_frozen_calibration.py`):**
+   - **Safeguard 1 (Time-Shifted Ecliptic Placebos Only):** Real partial-shadow plates lie strictly on the ecliptic (`|b_ecl| <= 16.64°`, median `4.12°` across the `291` `m_flash >= 9.0` partial-shadow exposures), whereas off-ecliptic random-angle placebos sample LMC/SMC and Galactic-plane star clouds (`|b_ecl| ~ 65°–89°`), artificially inflating critical thresholds (`crit_z = -4.967` at `m_flash >= 8.0`). All placebos are therefore generated **exclusively by time-shifting the real 3D topocentric Earth-umbra geometry (`points_in_umbra` at `42,164 km`)** along the ecliptic (`|mjd_placebo - mjd_true| >= 15 d`, `sun_alt < -12°`, `pointing_alt > 10°`, `0.05 < sf < 0.95`); **no random sky positions or random straight-line angles are ever used**.
+   - **Safeguard 2 (Local `32 × 32` Gaia Star-Density Control in `p_i`):** Because `46.9%` of single-plate candidates are persistent faint/blended stars that cannot vanish in Earth's shadow but vary in sky density across a plate, expected in-shadow share `p_i` explicitly incorporates the local `32 × 32` Gaia DR3 source density (`psf_pass & gaia_hit` to the plate's depth, smoothed at `sigma = 1.5` cells and normalized over unmasked cells), tightening `crit_z` from `-2.163` to **`-1.956`** at `m_flash >= 9.0` (and from `-1.780` to **`-1.652`** at `m_flash >= 8.0`).
 
 ---
 
-## Empirical Power Calibration & Go/No-Go Assessment (Sunlit Data Only)
+## Frozen Primary, Key Secondary & Claim Rule
 
-Using expected QC-passing partial-shadow plate counts (`shadow metadata x pilot per-instrument QC pass rates`) and `N = 1,000` placebo runs with synthetic deficits (`10%–50%`):
+### 1. Primary Test: Single-Plate Tier A+B (`m_flash >= 9.0`) Within-Plate Conditional Test
+- **Sample:** Every QC-passing exposure (`Tier A+B`, `m_flash(0.5s) >= 9.0`) with partial GEO umbra coverage (`0.05 < shadow_fraction < 0.95` on the unmasked `32 × 32` footprint; `291` archive exposures, **`106` expected QC-passing plates**).
+- **Candidate Filter:** **Final Frozen Filter v1.2** (Section "Frozen Extraction, Recalibration & QC Parameters" below, single-plate mode).
+- **Expected In-Shadow Share (`p_i`):** On each plate `i`, partition `[0, nx] × [0, ny]` into `32 × 32` cells with exact unmasked-cell indicator `M_{i,c}` (subtracting border `max(5%, 4 * med_r_psf)`, bright-star `20"–60"` halo discs, and `2"–15"` all-source proximity discs) and cell weight:
+  `w_{i,c} ∝ [ 0.469 * G_{i,c} + 0.531 * (P_{inst(i),c} * D_{i,c})_norm ] * M_{i,c}`, normalized to `sum_c w_{i,c} = 1`, where `G_{i,c}` is the normalized `32 × 32` local Gaia DR3 source density (`psf_pass & gaia_hit` to the plate's depth), `P_{inst(i),c}` is the empirical-Bayes `8 × 8` spatial defect profile fit strictly on sunlit (`shadow_fraction == 0`) plates, and `D_{i,c} = 10^(0.2 * clip(local_mlim_{i,c} - m_lim_cal_i, -1.5, 1.5))` is local detectability; `p_i = clip(sum_{c in umbra} w_{i,c}, 0.02, 0.98)`.
+- **Test Statistic & Placebo-Rank Inference (`>= 1,000` Time-Shifted Ecliptic Placebos):** Conditional on total plate events `n_i = n_{in,i} + n_{out,i}`, compute `Z_within = sum(n_{in,i} - n_i * p_i) / sqrt(sum(n_i * p_i * (1 - p_i)))` and Mantel-Haenszel rate ratio `RR_MH = sum(n_{in,i} * (1 - p_i)) / sum(n_{out,i} * p_i)`. Compute the one-sided p-value as the empirical rank of `Z_within` within **`>= 1,000` time-shifted 3D ecliptic umbral placebo realizations** (`p_placebo <= 0.05`) matched to the observed `{shadow_fraction_i}` distribution on strictly-sunlit near-ecliptic QC plates (with ecliptic-hemisphere chord-side symmetry `U` vs `V \ U` to eliminate finite-pool mean drift).
 
-| Tier & Depth Cut | Expected QC-Passing Partial-Shadow Plates | Placebo-Calibrated FPR | Power @ 30% Deficit | Power @ 40% Deficit | Go / No-Go (`>= 80%` @ 30%) |
-|---|---:|---:|---:|---:|---|
-| **Tier A+B (`m_flash >= 9.0`, 30″ de-clump)** | 85.3 (83 matched draws) | `6.7%` | **`53.2%`** | `78.6%` | **NO-GO** |
-| **Tier A (`m_flash >= 9.0`, 30″ de-clump)** | 27.6 (25 matched draws) | `3.5%` | **`29.9%`** | `38.9%` | **NO-GO** |
-| **Tier A (`m_flash >= 8.0`)** | **107.6 (104 matched draws)** | **`5.0%` (by rank)** | **`89.2%`** | **`98.8%`** | **GO** |
-| **Tier A+B (`m_flash >= 8.0`)** | **294.6 (292 matched draws)** | **`5.0%` (by rank)** | **`99.4%`** | **`100.0%`** | **GO** |
+### 2. Key Defect-Controlled Secondary: Strict Paired Tier A (`m_flash >= 8.0`, Partner-Vetoed)
+- **Sample & Role:** Every QC-passing rapid-repeat (`5 min <= |Δt| <= 24 h`) Tier A exposure at `m_flash(0.5s) >= 8.0` whose partner plate has identical archive `filter`/`plate_class` and calibrated `phot_band`, passing all partner-absence (`> 15.0"`), active-partner-region (`<= 120"`), local `60"` registration (`>= 0.80`), and `1.0 mag` local depth-margin checks (`253` archive exposures, **`66` expected QC-passing plates**).
+- **Explicit Power Limit Disclosure:** Because strict partner-vetoing removes persistent stars and restricts the sample to `~66` expected plates (`4.01` events/plate), **its measured `80%`-power MDD is `~55–65%` unscaled (`69.7%` power @ `60%` deficit, `86.0%` @ `70%` under 3D ecliptic umbral geometry; `22.3%` unscaled / `19.4%` depth-scaled power @ `30%`)**. It is **not** powered to detect a `30%` deficit on its own and serves as the defect-controlled directional gate in the Claim Rule below.
 
-- **Decision:** Even after within-plate conditioning, bright-star/edge area-subtracted masking, and `30"`/`60"` de-clustering, **`m_flash >= 9.0` does NOT reach 80% power at a 30% deficit** (`53.2%` on Tier A+B; `29.9%` on Tier A). Do **not** unblind at `m_flash >= 9.0`. Expanding the depth cut by `1.0 mag` to **`m_flash >= 8.0`** (`107.6` Tier A / `294.6` Tier A+B expected QC-passing partial-shadow plates) clears `80%` power (`89.2%` Tier A, `99.4%` Tier A+B) and is the recommended path before unblinding.
+### 3. Frozen Three-Gate Claim Rule
+A shadow deficit is reported as **positive evidence** for a pre-Sputnik orbital flash population **only if all three conditions hold simultaneously**:
+1. **`(a)` Primary Significance:** The Primary test (`Single-Plate Tier A+B, m_flash >= 9.0`) is statistically significant (`Z_within <= crit_z`, `p_placebo <= 0.05` one-sided) against `>= 1,000` time-shifted 3D ecliptic umbral placebos;
+2. **`(b)` Negative Controls All Pass:**
+   - **Shifted-Timestamp Control:** Re-evaluating `Z_within(t_i + Δt)` across `Δt in {±1, ±2, ±3, ±4, ±5}` days and off-opposition `{±30, ±60, ±90}` days peaks near `Δt = 0` and decays to null consistency (`p > 0.05`) off-shadow;
+   - **Fake-Altitude Parallax Control:** Comparing topocentric umbral cylinders at `42,164 km` (GEO) vs. `36,000 km`, `20,000 km`, and `5,000 km` behaves consistently with high-altitude orbital parallax rather than plate-fixed coordinates; and
+   - **Local-Solar-Time-Matched Control:** Anti-solar midnight sunlit plates (`|LST - 0h| <= 2h`, `shadow_fraction == 0` at `5° <= |b_ecl| <= 18°` just outside the `±4.35°` umbral cone) show no spurious deficit; AND
+3. **`(c)` Defect-Controlled Directional Concordance:** The **Strict Paired Tier A (`m_flash >= 8.0`, partner-vetoed)** point estimate points in the same direction (deficit: `RR_MH < 1` and `Z_within < 0`, not required to reach standalone `p <= 0.05`).
+
+**Otherwise**, the result is reported as **null** (if `(a)` fails) or **inconclusive / artifact-confounded** (if `(a)` passes but `(b)` or `(c)` fails).
+
+### 4. Pre-Registered Sensitivity Analysis & Other Secondary Tests
+- **Multi-Epoch Persistence Veto (Sensitivity Analysis — Not Required Before Unblinding):** For surviving candidates on partial-shadow plates, query deep archival plates covering the same sky coordinates from any epoch (via StarGlass / APPLAUSE cutouts) and veto any candidate present on another plate, directly removing persistent faint/blended stars rather than modeling their `46.9%` share.
+- **Single-Plate `m_flash >= 8.0` Secondary Variant:** Identical within-plate test expanded to `m_flash >= 8.0` (`817` archive partial-shadow exposures, **`314` expected QC-passing plates**).
+- **Depth & Altitude Dose-Response:** Monotonicity across `shadow_fraction`, `m_flash` depth bins, and umbral altitudes (`42,164 km`, `36,000 km`, `20,000 km`).
+- **Across-Plate Mixed-Effects NB GLM with `(1 | batch_id)`:** Clean candidate rate across sunlit vs. shadow plates (`offset = log(eff_area_deg2)`), `instrument` fixed effects, `|b_ecl|`, `solar_elong_deg`, `lst_midnight_hr`, `airmass`, and random intercept `(1 | batch_id)` (`|Δserial| <= 50`, `|ΔMJD| <= 30 d` within `(archive, series)`; sunlit `batch_ICC = 20.9%` across `73` QC batches in `sunlit_m8`).
+- **Aligned Multi-Flash Tracks (`src/aligned_tracks.py` — Exploratory Secondary):** Search for `>= 3` collinear (`<= 1.0 FWHM`), quasi-evenly spaced (`d_{k+1}/d_k in [0.75, 1.25]`) de-clustered events against `>= 1,000` exact `30"`-de-clustered per-plate shuffles, restricting the GEO drift-PA V-test `cos(2Δθ)` to unconfounded plates (`min(|θ_GEO - pixel_axis|) >= 20°`) plus APPLAUSE dual-`X/Y`-scan verification (`has_xy_scans == True`). Sunlit calibration is null on both the `102` paired pilot plates (`4` obs vs `5.36` expected, `p = 0.774`) and the `209` `sunlit_m8` QC plates (`71` obs vs `80.21` expected, `95th` pct `= 97.0`, `p = 0.843`; `0` obs vs `0.13` expected on `12` unconfounded `>= 20°` plates).
 
 ---
 
-## Frozen Extraction, Recalibration & QC Parameters
-- **Edge Border Mask:** `5%` of image width/height + zero-valued pixels.
-- **Polarity Detection:** Auto-inverted if `(p50 - p1) > 1.5 * (p99 - p50)`.
+## Final 1,000-Placebo Ecliptic Calibration & Power Table (Sunlit Data Only)
+
+All values below (`data/processed/final_frozen_power_calibration.csv`) are measured from `1,000` independent null and signal realizations using **time-shifted 3D ecliptic umbral geometry (`points_in_umbra`)** on strictly-sunlit plates (`K = 32` near-ecliptic QC plates at `m_flash >= 9.0`, `K = 61` at `m_flash >= 8.0`, `K = 102` partner-vetoed pilot plates for Paired Tier A):
+
+| Test Variant | Expected QC Plates | Gaia Density in `p_i` | `crit_z` (5% Rank) | Analytic FPR (`-1.645`) | Placebo-Rank FPR | Power @ 30% (Depth-Scaled / Unscaled) | Power @ 40% (Depth-Scaled / Unscaled) | Role / MDD Note |
+|---|---:|:---:|---:|---:|---:|---:|---:|---|
+| **PRIMARY: Single-Plate Tier A+B (`m >= 9.0`, ×0.531 diluted)** | **106** | **Yes** | **`-1.956`** | `6.7%` | **`3.9%`** | **`77.9%` / `94.7%`** | **`94.3%` / `99.9%`** | **FROZEN PRIMARY** (`100%` @ raw 30%) |
+| Primary Ablation: Single-Plate (`m >= 9.0`, ×0.531 diluted) | 106 | No | `-2.163` | `7.2%` | `3.4%` | `74.6%` / `93.9%` | `93.2%` / `99.9%` | Gaia control tightens `crit_z` by `+0.21` |
+| **KEY SECONDARY: Strict Paired Tier A (`m >= 8.0`, partner-vetoed)** | **66** | No | **`-2.035`** | `8.0%` | **`3.8%`** | **`19.4%` / `22.3%`** | `24.2%` / `38.3%` | **DEFECT GATE** (`80%` MDD `~55–65%` unsc.) |
+| Secondary: Single-Plate Tier A+B (`m >= 8.0`, ×0.531 diluted) | 314 | Yes | `-1.652` | `5.7%` | `5.6%` | `95.2%` / `99.5%` | `99.6%` / `100.0%` | Secondary depth expansion |
+| Secondary Ablation: Single-Plate (`m >= 8.0`, ×0.531 diluted) | 314 | No | `-1.780` | `7.1%` | `6.0%` | `94.0%` / `99.5%` | `99.5%` / `100.0%` | Ecliptic time-shift vs `-4.967` random sky |
+
+---
+
+## Frozen Extraction, Recalibration & QC Parameters (Final Frozen Filter v1.2)
+- **Edge Border Mask:** `max(5% of width/height, 4.0 * med_r_psf)` + zero-valued pixels, subtracted on `32 × 32` grid.
+- **Polarity Detection & Pixel Veto:** Auto-inverted on `[0.5, 50.0, 99.5]` valid-pixel percentiles if `(p50 - p05) > 1.3 * (p995 - p50)`; candidate stamp requires `peak_snr >= 4.0`, `min3_snr >= -3.0`, and `n_sat_pix == 0` in `5 × 5` core.
 - **Background & Extraction:** `sep.Background(..., bw=128, bh=128, fw=3, fh=3)`, `sep.extract(..., thresh=6.0 * rms, minarea=7, deblend_nthresh=1, deblend_cont=1.0)`.
-- **Stellar PSF & Cutout-Audit Filter:** `flag == 0`, `npix >= 5`, `flux > 0`, `ellip <= 0.25`, `0.7 * med_r_psf <= r_psf <= 1.8 * med_r_psf`, `edge_dist_psf >= 4.0`, and no source `> 2.5 mag` brighter within `25.0"`.
-- **Astrometric Refit (`src/calibrate.py`):** Gaia DR3 proper-motion propagation to `mjd_mid`; iterative TAN-SIP (`30" -> 10" -> 5" -> 3"`, order 3–5 by 5-fold CV).
-- **Photometric Calibration (`src/calibrate.py`):** Monotonic `PchipInterpolator` to Gaia `BP` or `G` (smaller MAD), with `IQR >= 0.5 mag` guard falling back to linear `m_inst + zp`; `8 x 8` turnover `local_mlim` grid.
-- **Astrometric QC Gate:** Bright stars (`mag_cal < m_lim_cal - 2.0`, fallback top 100) match Gaia DR3 `>= 90%` within `3.0"` AND `median_resid <= 1.5"`.
-- **Partner-Detectability Rule:** Inside partner footprint, `edge_dist_psf >= 4.0`, `>= 1.0 mag` brighter than partner **local** calibrated `m_lim`, and no match in **all** partner extracted sources within `15.0"`.
-- **Asteroid Cross-Match (`src/asteroids.py`):** One SkyBoT cone search per plate at `mjd_mid`; match radius `hypot(15", 0.5 * motion_as_hr * exptime_hr) + 5"`.
-- **Unblinding Fairness Rule:** Shadow and sunlit plates undergo identical processing; shadow vs. sunlit QC failure rates must be reported first before examining any shadow candidates.
+- **Stellar PSF, Concentration & Proximity Filter (Shape Agent-Only / Not Human-Verified):** `flag == 0`, `npix >= 5`, `flux > 0`, `~gaia_hit` (`> 3.0"`), `ellip <= 0.20`, `0.7 * med_r_psf <= r_psf <= 1.5 * med_r_psf`, `conc_pk_9x9 >= 0.03`, bright-star halo mask (`mag < m_lim_cal - 3.0`, radius `20"–60"`), `2.0"–15.0"` all-source proximity veto (area-subtracted on `32 × 32` grid), SkyBoT asteroid veto, and `30.0"` `_declump_events` de-clustering.
+- **Astrometric & Photometric Calibration (`src/calibrate.py`):** Gaia DR3 proper-motion propagation to `mjd_mid`; iterative TAN-SIP (`30" -> 10" -> 5" -> 3"`, order 3–5 by 5-fold CV); monotonic `PchipInterpolator` (`IQR >= 0.5 mag` linear-ZP fallback guard) to Gaia `BP` or `G`; `8 × 8` turnover `local_mlim` grid; QC gate `>= 90%` bright-star Gaia match within `3.0"` AND `median_resid <= 1.5"`.
+- **Paired Tier A Partner Rules (Human-Verified `0 / 50` Partner Leak Rate):** Identical archive `filter`/`plate_class` and calibrated `phot_band`, partner `edge_dist_psf >= 4.0`, `local_mlim_B - mag_A >= 1.0`, no extracted partner source within `15.0"`, `>= 1` extracted partner source within `120.0"`, and `60"` neighbor registration score `>= 0.80` (`<= 5.0"` match where `N_nbr >= 3`).
+- **Unblinding Fairness & Campaign-Diversity Reporting Rule:** Shadow and sunlit plates undergo identical code; shadow vs. sunlit QC pass rates and the counts of distinct instruments, plate series, and `batch_id` runs (plus top-1/top-2 batch shares) in the unblinded sample must be reported upfront alongside the plate count.

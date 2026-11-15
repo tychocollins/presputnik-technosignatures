@@ -185,15 +185,21 @@ def extract_stamp_60as(
 
 
 def _extract_plate_sources(
-    fits_bytes: bytes,
+    fits_bytes: bytes | Path,
     override_wcs_str: str | None = None,
     return_image: bool = False,
 ) -> tuple[Any, ...] | None:
     """Run SEP source extraction + stellar PSF tagging + 8x8 local RMS map."""
-    with tempfile.NamedTemporaryFile(suffix=".fits") as tmp:
-        tmp.write(fits_bytes)
-        tmp.flush()
-        with fits.open(tmp.name, memmap=False) as hdul:
+    tmp_ctx = None
+    if isinstance(fits_bytes, Path):
+        fits_path = str(fits_bytes)
+    else:
+        tmp_ctx = tempfile.NamedTemporaryFile(suffix=".fits")
+        tmp_ctx.write(fits_bytes)
+        tmp_ctx.flush()
+        fits_path = tmp_ctx.name
+    try:
+        with fits.open(fits_path, memmap=False) as hdul:
             hdu = None
             for h in hdul:
                 if h.data is not None and h.data.ndim == 2:
@@ -216,6 +222,9 @@ def _extract_plate_sources(
                 wcs = _parse_wcs_from_string(override_wcs_str)
             if not wcs.has_celestial:
                 return None
+    finally:
+        if tmp_ctx is not None:
+            tmp_ctx.close()
 
     # Mask zeros / borders (5% margin)
     mask = data == 0
@@ -231,8 +240,8 @@ def _extract_plate_sources(
         return None
     p05, p50, p995 = np.percentile(valid_vals, [0.5, 50.0, 99.5])
     if (p50 - p05) > 1.3 * (p995 - p50):
-        data = -data
-        valid_vals = -valid_vals
+        data *= -1.0
+        valid_vals *= -1.0
 
     # Flag clipped/saturated plateaus before background subtraction
     sat_mask = (~np.isfinite(data)) | (data == 0)
@@ -242,9 +251,11 @@ def _extract_plate_sources(
         sat_mask |= data >= v_max - 1e-6
     if np.sum(valid_vals <= v_min + 1e-6) > 10:
         sat_mask |= data <= v_min + 1e-6
+    del valid_vals
 
     bkg = sep.Background(data, mask=mask, bw=128, bh=128, fw=3, fh=3)
-    data_sub = data - bkg.back()
+    data -= bkg.back()
+    data_sub = data
     rms_img = np.maximum(bkg.rms(), 1e-6)
     rms = float(bkg.globalrms)
     if not np.isfinite(rms) or rms <= 0:

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import gc
 import json
 import os
 import tarfile
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -95,7 +97,7 @@ def _assert_strictly_sunlit(df: pd.DataFrame) -> None:
             raise SystemExit(f"HARD BLINDNESS GUARD ABORT: {n_bad} rows have {col} > 0 or NaN!")
 
 
-def _download_fits(pid: str, sa: str, applause_urls: dict[str, str]) -> bytes:
+def _download_fits_to_file(pid: str, sa: str, applause_urls: dict[str, str]) -> Path:
     if sa == "DASCH":
         # Fresh GET on GAVO each attempt generates a fresh 900s S3 presigned URL
         url = f"http://dc.g-vo.org/dasch/q/getprod/qp/fits-01/{pid.replace('DASCH_', '')}"
@@ -103,17 +105,21 @@ def _download_fits(pid: str, sa: str, applause_urls: dict[str, str]) -> bytes:
         url = applause_urls[pid]
     for attempt in range(3):
         t0 = time.monotonic()
+        tmp_f = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
+        tmp_path = Path(tmp_f.name)
         try:
             with requests.get(url, timeout=(30, 120), stream=True) as r:
                 r.raise_for_status()
-                chunks = []
                 for chunk in r.iter_content(chunk_size=1024 * 1024):
                     if time.monotonic() - t0 > 600.0:
                         raise TimeoutError(f"Timeout >600s for {pid}")
                     if chunk:
-                        chunks.append(chunk)
-                return b"".join(chunks)
+                        tmp_f.write(chunk)
+            tmp_f.close()
+            return tmp_path
         except Exception as exc:
+            tmp_f.close()
+            tmp_path.unlink(missing_ok=True)
             if attempt == 2:
                 raise
             print(f"  Retry {attempt + 1}/2 for {pid} after {type(exc).__name__}: {exc}", flush=True)
@@ -136,10 +142,13 @@ def process_single_sunlit_plate(
     sa = str(row["source_archive"])
     t0 = time.time()
 
-    b = _download_fits(pid, sa, applause_urls)
-    ext = _extract_plate_sources(b, override_wcs_str=applause_wcs.get(pid), return_image=True)
-    del b
+    fits_path = _download_fits_to_file(pid, sa, applause_urls)
+    try:
+        ext = _extract_plate_sources(fits_path, override_wcs_str=applause_wcs.get(pid), return_image=True)
+    finally:
+        fits_path.unlink(missing_ok=True)
     if ext is None:
+        gc.collect()
         return {"exposure_id": eid, "plate_id": pid, "instrument": row["instrument"], "status": "extract_failed", "qc_pass": False}, []
 
     df_all, wcs, (ny, nx), med_r, rms_grid, med_rms, img = ext
@@ -153,6 +162,7 @@ def process_single_sunlit_plate(
 
     if not qc["qc_pass"]:
         del img
+        gc.collect()
         return {
             "exposure_id": eid, "plate_id": pid, "instrument": row["instrument"],
             "is_tier_a": bool(row["is_tier_a"]), "m_flash_05s": float(row["m_flash_05s"]),
@@ -246,6 +256,7 @@ def process_single_sunlit_plate(
             wcs_hdr=wcs.to_header_string(),
         )
     del img
+    gc.collect()
 
     # 30" de-clustering
     ev_xy = _declump_events(sub["ra"].to_numpy(), sub["dec"].to_numpy(), xn, yn, 30.0) if len(sub) > 0 else np.zeros((0, 2))

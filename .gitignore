@@ -9,3 +9,5 @@ data/*
 !data/processed/
 data/processed/*
 !data/processed/sunlit_m8_sample.parquet
+!data/processed/final_frozen_power_calibration.csv
+!data/processed/blind_human_audit_50_v2_human_labels.csv

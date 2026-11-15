@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+
+# Keep local data out of git except the 74 KB sunlit_m8_sample.parquet needed by Render
+data/*
+!data/processed/
+data/processed/*
+!data/processed/sunlit_m8_sample.parquet

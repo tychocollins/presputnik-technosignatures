@@ -1,0 +1,9 @@
+*
+!src/
+!src/**
+!requirements.txt
+!data/
+!data/processed/
+!data/processed/sunlit_m8_sample.parquet
+**/__pycache__/
+**/*.pyc

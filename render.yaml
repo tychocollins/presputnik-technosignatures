@@ -1,0 +1,19 @@
+services:
+  - type: worker
+    name: sunlit-m8-worker
+    runtime: docker
+    region: virginia
+    plan: pro
+    dockerfilePath: ./Dockerfile
+    autoDeploy: false
+    disk:
+      name: sunlit-m8-data
+      mountPath: /data
+      sizeGB: 20
+    envVars:
+      - key: OUTPUT_DIR
+        value: /data
+      - key: MAX_WORKERS
+        value: "2"
+      - key: PYTHONUNBUFFERED
+        value: "1"

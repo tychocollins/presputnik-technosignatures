@@ -14,6 +14,6 @@ services:
       - key: OUTPUT_DIR
         value: /data
       - key: MAX_WORKERS
-        value: "3"
+        value: "2"
       - key: PYTHONUNBUFFERED
         value: "1"

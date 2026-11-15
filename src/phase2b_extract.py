@@ -43,6 +43,9 @@ from src.tiers import _angular_sep_deg
 
 # Limit Potsdam (www.plate-archive.org) to 1 concurrent FITS stream so it never throttles or drops
 _APPLAUSE_DL_SEM = threading.Semaphore(1)
+# Serialize heavy SEP 2D float32 array extraction (and hold through stamp cutout on >600 MB Bruce plates)
+# so peak RAM stays <= 10 GB on a 16 GB Render Pro Plus instance
+_EXTRACT_MEM_LOCK = threading.Lock()
 
 
 def _get_out_dir() -> Path:
@@ -293,8 +296,8 @@ def _fetch_applause_wcs_headers(plate_ids: list[str]) -> dict[str, str]:
     return wcs_map
 
 
-def _download_fits_phase2b(pid: str, sa: str, applause_url: str) -> Path:
-    """Download FITS to temp file; serialize APPLAUSE streams via semaphore and retry transient drops."""
+def _download_fits_phase2b(pid: str, sa: str, applause_url: str, out_dir: Path | None = None) -> Path:
+    """Download FITS to disk temp dir (avoiding Linux /tmp tmpfs RAM); serialize APPLAUSE streams."""
     if sa == "DASCH":
         url = f"http://dc.g-vo.org/dasch/q/getprod/qp/fits-01/{pid.replace('DASCH_', '')}"
         max_attempts = 3
@@ -304,10 +307,18 @@ def _download_fits_phase2b(pid: str, sa: str, applause_url: str) -> Path:
         max_attempts = 5
         max_wall_s = 1200.0
 
+    tmp_dir = (out_dir / "tmp_fits") if out_dir is not None else None
+    if tmp_dir is not None:
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+
     def _do_stream() -> Path:
         for attempt in range(max_attempts):
             t0 = time.monotonic()
-            tmp_f = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
+            tmp_f = tempfile.NamedTemporaryFile(
+                suffix=".fits",
+                dir=(str(tmp_dir) if tmp_dir is not None else None),
+                delete=False,
+            )
             tmp_path = Path(tmp_f.name)
             try:
                 with requests.get(url, timeout=(30, 180), stream=True) as r:
@@ -346,160 +357,165 @@ def process_phase2b_plate(
     t0 = time.time()
     print(f"  -> starting {eid} ({pid}, {sa}, stage={row['stage']})...", flush=True)
 
-    fits_path = _download_fits_phase2b(pid, sa, str(row.get("applause_scan_url", "")))
+    fits_path = _download_fits_phase2b(pid, sa, str(row.get("applause_scan_url", "")), out_dir=out_dir)
     sz_mb = fits_path.stat().st_size / 1e6
-    print(f"     downloaded {eid} ({sz_mb:.1f} MB in {time.time()-t0:.1f}s), extracting...", flush=True)
-    try:
-        ext = _extract_plate_sources(fits_path, override_wcs_str=applause_wcs.get(pid), return_image=True)
-    finally:
-        fits_path.unlink(missing_ok=True)
-        gc.collect()
+    print(f"     downloaded {eid} ({sz_mb:.1f} MB in {time.time()-t0:.1f}s), waiting for RAM slot...", flush=True)
 
-    if ext is None:
-        gc.collect()
-        return {
+    # Hold _EXTRACT_MEM_LOCK across the entire image-in-RAM lifetime so at most ONE plate's pixel array
+    # resides in RAM at a time (fits safely inside 8 GB Pro Plus even on 1.13 GB Bruce plates), while the
+    # second worker prefetches the next FITS file onto /data/tmp_fits SSD.
+    with _EXTRACT_MEM_LOCK:
+        try:
+            ext = _extract_plate_sources(fits_path, override_wcs_str=applause_wcs.get(pid), return_image=True)
+        finally:
+            fits_path.unlink(missing_ok=True)
+            gc.collect()
+
+        if ext is None:
+            gc.collect()
+            return {
+                "exposure_id": eid,
+                "plate_id": pid,
+                "source_archive": sa,
+                "instrument": str(row["instrument"]),
+                "stage": str(row["stage"]),
+                "phase2b_role": str(row["phase2b_role"]),
+                "status": "extract_failed",
+                "qc_pass": False,
+                "elapsed_s": round(time.time() - t0, 1),
+            }
+
+        df_all, wcs, (ny, nx), med_r, rms_grid, med_rms, img = ext
+        print(f"     extracted {eid} shape=({ny},{nx}) n_src={len(df_all)} ({time.time()-t0:.1f}s)", flush=True)
+        df_all, qc, local_grid = calibrate_plate(
+            df_all,
+            wcs,
+            nx,
+            ny,
+            float(row["mjd_mid"]),
+            float(row["m_lim"]),
+            float(row["exptime_sec"]),
+            rms_grid=rms_grid,
+            med_rms=med_rms,
+        )
+        cat_dir = out_dir / "phase2b_catalogs"
+        cat_dir.mkdir(parents=True, exist_ok=True)
+        df_all.to_parquet(cat_dir / f"{eid}.parquet", index=False)
+
+        base_rec: dict[str, Any] = {
             "exposure_id": eid,
             "plate_id": pid,
             "source_archive": sa,
             "instrument": str(row["instrument"]),
             "stage": str(row["stage"]),
             "phase2b_role": str(row["phase2b_role"]),
-            "status": "extract_failed",
-            "qc_pass": False,
-            "elapsed_s": round(time.time() - t0, 1),
+            "is_tier_a": bool(row["is_tier_a"]),
+            "m_flash_05s": float(row["m_flash_05s"]),
+            "m_flash_05s_cal": float(qc["m_flash_05s_cal"]),
+            "m_lim_cal": float(qc["m_lim_cal"]),
+            "phot_band": str(qc.get("phot_band") or ""),
+            "sip_order": int(qc.get("sip_order", 0)),
+            "bright_match_rate": float(qc["bright_match_rate"]) if np.isfinite(qc["bright_match_rate"]) else np.nan,
+            "med_resid_after_as": float(qc["med_resid_after_as"]) if np.isfinite(qc["med_resid_after_as"]) else np.nan,
+            "nx": int(nx),
+            "ny": int(ny),
+            "med_r_psf": float(med_r) if np.isfinite(med_r) and med_r > 0 else 3.0,
+            "wcs_header": wcs.to_header_string(),
+            "fov_area_deg2": float(row["fov_ra_deg"]) * float(row["fov_dec_deg"]),
+            "n_scans": int(row.get("n_scans", 1)),
+            "local_mlim_grid_json": json.dumps(np.round(local_grid, 3).tolist()),
+            "status": "ok",
+            "qc_pass": bool(qc["qc_pass"]),
         }
 
-    df_all, wcs, (ny, nx), med_r, rms_grid, med_rms, img = ext
-    print(f"     extracted {eid} shape=({ny},{nx}) n_src={len(df_all)} ({time.time()-t0:.1f}s)", flush=True)
-    df_all, qc, local_grid = calibrate_plate(
-        df_all,
-        wcs,
-        nx,
-        ny,
-        float(row["mjd_mid"]),
-        float(row["m_lim"]),
-        float(row["exptime_sec"]),
-        rms_grid=rms_grid,
-        med_rms=med_rms,
-    )
-    cat_dir = out_dir / "phase2b_catalogs"
-    cat_dir.mkdir(parents=True, exist_ok=True)
-    df_all.to_parquet(cat_dir / f"{eid}.parquet", index=False)
+        if not qc["qc_pass"]:
+            del img
+            gc.collect()
+            base_rec["ast_ra_json"] = "[]"
+            base_rec["ast_dec_json"] = "[]"
+            base_rec["n_stamps"] = 0
+            base_rec["elapsed_s"] = round(time.time() - t0, 1)
+            return base_rec
 
-    base_rec: dict[str, Any] = {
-        "exposure_id": eid,
-        "plate_id": pid,
-        "source_archive": sa,
-        "instrument": str(row["instrument"]),
-        "stage": str(row["stage"]),
-        "phase2b_role": str(row["phase2b_role"]),
-        "is_tier_a": bool(row["is_tier_a"]),
-        "m_flash_05s": float(row["m_flash_05s"]),
-        "m_flash_05s_cal": float(qc["m_flash_05s_cal"]),
-        "m_lim_cal": float(qc["m_lim_cal"]),
-        "phot_band": str(qc.get("phot_band") or ""),
-        "sip_order": int(qc.get("sip_order", 0)),
-        "bright_match_rate": float(qc["bright_match_rate"]) if np.isfinite(qc["bright_match_rate"]) else np.nan,
-        "med_resid_after_as": float(qc["med_resid_after_as"]) if np.isfinite(qc["med_resid_after_as"]) else np.nan,
-        "nx": int(nx),
-        "ny": int(ny),
-        "med_r_psf": float(med_r) if np.isfinite(med_r) and med_r > 0 else 3.0,
-        "wcs_header": wcs.to_header_string(),
-        "fov_area_deg2": float(row["fov_ra_deg"]) * float(row["fov_dec_deg"]),
-        "n_scans": int(row.get("n_scans", 1)),
-        "local_mlim_grid_json": json.dumps(np.round(local_grid, 3).tolist()),
-        "status": "ok",
-        "qc_pass": bool(qc["qc_pass"]),
-    }
+        med_r_val = base_rec["med_r_psf"]
+        m_lim_cal = base_rec["m_lim_cal"]
+        border_x = max(0.05, 4.0 * med_r_val / max(nx, 1))
+        border_y = max(0.05, 4.0 * med_r_val / max(ny, 1))
 
-    if not qc["qc_pass"]:
+        mag_all = df_all["mag_est"].to_numpy(dtype=float)
+        bright_idx = np.where(np.isfinite(mag_all) & (mag_all < (m_lim_cal - 3.0)))[0]
+        if len(bright_idx) > 0:
+            sc_bright = SkyCoord(df_all["ra"].to_numpy()[bright_idx] * u.deg, df_all["dec"].to_numpy()[bright_idx] * u.deg)
+            r_mask_as = np.clip(20.0 + 8.0 * np.maximum(0.0, (m_lim_cal - 3.0) - mag_all[bright_idx]), 20.0, 60.0)
+        else:
+            sc_bright = None
+            r_mask_as = np.zeros(0)
+
+        morph_ok = (
+            df_all["psf_pass"].to_numpy()
+            & (~df_all["gaia_hit"].to_numpy())
+            & (df_all["ellip"].to_numpy() <= 0.20)
+            & (df_all["r_psf"].to_numpy() >= 0.7 * med_r_val)
+            & (df_all["r_psf"].to_numpy() <= 1.5 * med_r_val)
+            & (df_all["peak_snr"].to_numpy() >= 4.0)
+            & (df_all["min3_snr"].to_numpy() >= -3.0)
+            & (df_all["n_sat_pix"].to_numpy() == 0)
+        )
+        sub = df_all[morph_ok].copy().reset_index(drop=True)
+        if len(sub) > 0:
+            xa, ya = wcs.world_to_pixel(SkyCoord(sub["ra"].to_numpy() * u.deg, sub["dec"].to_numpy() * u.deg))
+            xn, yn = xa / max(nx, 1), ya / max(ny, 1)
+            keep = (xn >= border_x) & (xn <= 1.0 - border_x) & (yn >= border_y) & (yn <= 1.0 - border_y)
+            if sc_bright is not None and len(sc_bright) > 0:
+                sc_k = SkyCoord(sub["ra"].to_numpy() * u.deg, sub["dec"].to_numpy() * u.deg)
+                idx_k, idx_b, sep_kb, _ = sc_bright.search_around_sky(sc_k, 60.0 * u.arcsec)
+                for ib, ik, s in zip(idx_b, idx_k, sep_kb.arcsec):
+                    if s <= r_mask_as[ib]:
+                        keep[ik] = False
+            sub = sub[keep].copy().reset_index(drop=True)
+
+        rad_deg = 0.5 * float(np.hypot(row["fov_ra_deg"], row["fov_dec_deg"])) + 0.25
+        ast_df = query_skybot_plate(float(row["ra_deg"]), float(row["dec_deg"]), rad_deg, float(row["mjd_mid"]))
+        if len(ast_df) > 0:
+            ast_ra = [round(float(x), 6) for x in ast_df["ra"].to_numpy(dtype=float)]
+            ast_dec = [round(float(x), 6) for x in ast_df["dec"].to_numpy(dtype=float)]
+            if len(sub) > 0:
+                sc_k = SkyCoord(sub["ra"].to_numpy() * u.deg, sub["dec"].to_numpy() * u.deg)
+                sc_a = SkyCoord(ast_df["ra"].to_numpy() * u.deg, ast_df["dec"].to_numpy() * u.deg)
+                _, sep_ast, _ = sc_k.match_to_catalog_sky(sc_a)
+                sub = sub[sep_ast.arcsec > 20.0].copy().reset_index(drop=True)
+        else:
+            ast_ra, ast_dec = [], []
+
+        if len(sub) > 0:
+            stamp_dir = out_dir / "phase2b_stamps"
+            stamp_dir.mkdir(parents=True, exist_ok=True)
+            stamps_snr, stamps_sat, stamps_ps = [], [], []
+            for r_c, d_c in zip(sub["ra"].to_numpy(dtype=float), sub["dec"].to_numpy(dtype=float)):
+                cs, sm, ps_c, _ = extract_stamp_60as(
+                    img["data_sub"], img["rms_img"], img["sat_mask"], wcs, float(r_c), float(d_c)
+                )
+                stamps_snr.append(cs)
+                stamps_sat.append(sm)
+                stamps_ps.append(ps_c)
+            np.savez_compressed(
+                stamp_dir / f"{eid}.npz",
+                snr=np.array(stamps_snr, dtype=np.float32),
+                sat=np.array(stamps_sat, dtype=bool),
+                ps=np.array(stamps_ps, dtype=np.float32),
+                ra=sub["ra"].to_numpy(dtype=np.float64),
+                dec=sub["dec"].to_numpy(dtype=np.float64),
+                wcs_hdr=wcs.to_header_string(),
+            )
+
         del img
         gc.collect()
-        base_rec["ast_ra_json"] = "[]"
-        base_rec["ast_dec_json"] = "[]"
-        base_rec["n_stamps"] = 0
+
+        base_rec["ast_ra_json"] = json.dumps(ast_ra)
+        base_rec["ast_dec_json"] = json.dumps(ast_dec)
+        base_rec["n_stamps"] = int(len(sub))
         base_rec["elapsed_s"] = round(time.time() - t0, 1)
         return base_rec
-
-    med_r_val = base_rec["med_r_psf"]
-    m_lim_cal = base_rec["m_lim_cal"]
-    border_x = max(0.05, 4.0 * med_r_val / max(nx, 1))
-    border_y = max(0.05, 4.0 * med_r_val / max(ny, 1))
-
-    mag_all = df_all["mag_est"].to_numpy(dtype=float)
-    bright_idx = np.where(np.isfinite(mag_all) & (mag_all < (m_lim_cal - 3.0)))[0]
-    if len(bright_idx) > 0:
-        sc_bright = SkyCoord(df_all["ra"].to_numpy()[bright_idx] * u.deg, df_all["dec"].to_numpy()[bright_idx] * u.deg)
-        r_mask_as = np.clip(20.0 + 8.0 * np.maximum(0.0, (m_lim_cal - 3.0) - mag_all[bright_idx]), 20.0, 60.0)
-    else:
-        sc_bright = None
-        r_mask_as = np.zeros(0)
-
-    morph_ok = (
-        df_all["psf_pass"].to_numpy()
-        & (~df_all["gaia_hit"].to_numpy())
-        & (df_all["ellip"].to_numpy() <= 0.20)
-        & (df_all["r_psf"].to_numpy() >= 0.7 * med_r_val)
-        & (df_all["r_psf"].to_numpy() <= 1.5 * med_r_val)
-        & (df_all["peak_snr"].to_numpy() >= 4.0)
-        & (df_all["min3_snr"].to_numpy() >= -3.0)
-        & (df_all["n_sat_pix"].to_numpy() == 0)
-    )
-    sub = df_all[morph_ok].copy().reset_index(drop=True)
-    if len(sub) > 0:
-        xa, ya = wcs.world_to_pixel(SkyCoord(sub["ra"].to_numpy() * u.deg, sub["dec"].to_numpy() * u.deg))
-        xn, yn = xa / max(nx, 1), ya / max(ny, 1)
-        keep = (xn >= border_x) & (xn <= 1.0 - border_x) & (yn >= border_y) & (yn <= 1.0 - border_y)
-        if sc_bright is not None and len(sc_bright) > 0:
-            sc_k = SkyCoord(sub["ra"].to_numpy() * u.deg, sub["dec"].to_numpy() * u.deg)
-            idx_k, idx_b, sep_kb, _ = sc_bright.search_around_sky(sc_k, 60.0 * u.arcsec)
-            for ib, ik, s in zip(idx_b, idx_k, sep_kb.arcsec):
-                if s <= r_mask_as[ib]:
-                    keep[ik] = False
-        sub = sub[keep].copy().reset_index(drop=True)
-
-    rad_deg = 0.5 * float(np.hypot(row["fov_ra_deg"], row["fov_dec_deg"])) + 0.25
-    ast_df = query_skybot_plate(float(row["ra_deg"]), float(row["dec_deg"]), rad_deg, float(row["mjd_mid"]))
-    if len(ast_df) > 0:
-        ast_ra = [round(float(x), 6) for x in ast_df["ra"].to_numpy(dtype=float)]
-        ast_dec = [round(float(x), 6) for x in ast_df["dec"].to_numpy(dtype=float)]
-        if len(sub) > 0:
-            sc_k = SkyCoord(sub["ra"].to_numpy() * u.deg, sub["dec"].to_numpy() * u.deg)
-            sc_a = SkyCoord(ast_df["ra"].to_numpy() * u.deg, ast_df["dec"].to_numpy() * u.deg)
-            _, sep_ast, _ = sc_k.match_to_catalog_sky(sc_a)
-            sub = sub[sep_ast.arcsec > 20.0].copy().reset_index(drop=True)
-    else:
-        ast_ra, ast_dec = [], []
-
-    if len(sub) > 0:
-        stamp_dir = out_dir / "phase2b_stamps"
-        stamp_dir.mkdir(parents=True, exist_ok=True)
-        stamps_snr, stamps_sat, stamps_ps = [], [], []
-        for r_c, d_c in zip(sub["ra"].to_numpy(dtype=float), sub["dec"].to_numpy(dtype=float)):
-            cs, sm, ps_c, _ = extract_stamp_60as(
-                img["data_sub"], img["rms_img"], img["sat_mask"], wcs, float(r_c), float(d_c)
-            )
-            stamps_snr.append(cs)
-            stamps_sat.append(sm)
-            stamps_ps.append(ps_c)
-        np.savez_compressed(
-            stamp_dir / f"{eid}.npz",
-            snr=np.array(stamps_snr, dtype=np.float32),
-            sat=np.array(stamps_sat, dtype=bool),
-            ps=np.array(stamps_ps, dtype=np.float32),
-            ra=sub["ra"].to_numpy(dtype=np.float64),
-            dec=sub["dec"].to_numpy(dtype=np.float64),
-            wcs_hdr=wcs.to_header_string(),
-        )
-
-    del img
-    gc.collect()
-
-    base_rec["ast_ra_json"] = json.dumps(ast_ra)
-    base_rec["ast_dec_json"] = json.dumps(ast_dec)
-    base_rec["n_stamps"] = int(len(sub))
-    base_rec["elapsed_s"] = round(time.time() - t0, 1)
-    return base_rec
 
 
 def _package_phase2b_outputs(out_dir: Path, archive_name: str = "phase2b_outputs.tar.gz") -> Path:
@@ -672,8 +688,16 @@ def _execute_batch(
                 )
 
 
-def run_stage(stages: list[str], max_workers: int = 3, out_dir: Path | None = None) -> None:
+def run_stage(stages: list[str], max_workers: int = 2, out_dir: Path | None = None) -> None:
     out_dir = out_dir or _get_out_dir()
+    is_cloud = bool(os.environ.get("RENDER")) or str(out_dir) == "/data"
+    if is_cloud:
+        max_workers = min(max_workers, 2)
+    # Clean up any leftover temp FITS files from prior container restarts
+    tmp_fits_dir = out_dir / "tmp_fits"
+    if tmp_fits_dir.exists():
+        for fp in tmp_fits_dir.glob("*.fits"):
+            fp.unlink(missing_ok=True)
     manifest = build_phase2b_manifest()
     target = manifest[manifest["stage"].isin(stages)].reset_index(drop=True)
 
@@ -725,7 +749,7 @@ def run_stage(stages: list[str], max_workers: int = 3, out_dir: Path | None = No
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--stages", nargs="+", default=["A", "B", "C"], choices=["A", "B", "C"])
-    parser.add_argument("--workers", type=int, default=int(os.environ.get("MAX_WORKERS", "3")))
+    parser.add_argument("--workers", type=int, default=int(os.environ.get("MAX_WORKERS", "2")))
     parser.add_argument("--step1-only", action="store_true")
     parser.add_argument("--rebuild-manifest", action="store_true")
     args = parser.parse_args()

@@ -141,12 +141,15 @@ def process_single_sunlit_plate(
     pid = str(row["plate_id"])
     sa = str(row["source_archive"])
     t0 = time.time()
+    print(f"  -> starting {eid} ({pid}, {sa})...", flush=True)
 
     fits_path = _download_fits_to_file(pid, sa, applause_urls)
+    print(f"     downloaded {eid} ({fits_path.stat().st_size / 1e6:.1f} MB in {time.time()-t0:.1f}s), extracting...", flush=True)
     try:
         ext = _extract_plate_sources(fits_path, override_wcs_str=applause_wcs.get(pid), return_image=True)
     finally:
         fits_path.unlink(missing_ok=True)
+        gc.collect()
     if ext is None:
         gc.collect()
         return {"exposure_id": eid, "plate_id": pid, "instrument": row["instrument"], "status": "extract_failed", "qc_pass": False}, []
@@ -344,20 +347,36 @@ def run_sunlit_m8(n_target: int = 400, max_workers: int = 2) -> None:
             pd.DataFrame(plate_recs).to_parquet(out_plates_p, index=False)
             pd.DataFrame(ev_recs if ev_recs else [{"exposure_id": "", "x_norm": 0.0, "y_norm": 0.0}]).iloc[: len(ev_recs)].to_parquet(out_events_p, index=False)
 
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futs = {ex.submit(process_single_sunlit_plate, r, applause_urls, applause_wcs, out_dir): r["exposure_id"] for _, r in todo.iterrows()}
-            for k, fut in enumerate(as_completed(futs), 1):
-                eid = futs[fut]
+        if max_workers <= 1:
+            for k, (_, r) in enumerate(todo.iterrows(), 1):
+                eid = str(r["exposure_id"])
                 try:
-                    p_rec, e_list = fut.result()
+                    p_rec, e_list = process_single_sunlit_plate(r, applause_urls, applause_wcs, out_dir)
                     plate_recs.append(p_rec)
                     ev_recs.extend(e_list)
                 except Exception as e:
+                    print(f"  !! ERROR on {eid}: {type(e).__name__}: {e}", flush=True)
                     plate_recs.append({"exposure_id": eid, "status": f"err:{type(e).__name__}", "qc_pass": False})
-                if k % 5 == 0 or k == len(todo):
+                gc.collect()
+                _flush()
+                last = plate_recs[-1]
+                print(f"  [{k}/{len(todo)}] done={eid} status={last.get('status')} qc={last.get('qc_pass')} events={last.get('n_events', 0)} elapsed={last.get('elapsed_s', '?')}s", flush=True)
+        else:
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futs = {ex.submit(process_single_sunlit_plate, r, applause_urls, applause_wcs, out_dir): r["exposure_id"] for _, r in todo.iterrows()}
+                for k, fut in enumerate(as_completed(futs), 1):
+                    eid = futs[fut]
+                    try:
+                        p_rec, e_list = fut.result()
+                        plate_recs.append(p_rec)
+                        ev_recs.extend(e_list)
+                    except Exception as e:
+                        print(f"  !! ERROR on {eid}: {type(e).__name__}: {e}", flush=True)
+                        plate_recs.append({"exposure_id": eid, "status": f"err:{type(e).__name__}", "qc_pass": False})
+                    gc.collect()
                     _flush()
                     last = plate_recs[-1]
-                    print(f"  [{k}/{len(todo)}] last={eid} status={last.get('status')} qc={last.get('qc_pass')} events={last.get('n_events', 0)}", flush=True)
+                    print(f"  [{k}/{len(todo)}] done={eid} status={last.get('status')} qc={last.get('qc_pass')} events={last.get('n_events', 0)}", flush=True)
 
     _package_outputs(out_dir)
     if os.environ.get("RENDER"):

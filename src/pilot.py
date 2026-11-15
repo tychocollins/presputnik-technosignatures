@@ -129,19 +129,33 @@ def _parse_wcs_from_string(wcs_str: str) -> WCS:
     return WCS(hdr, naxis=2)
 
 
-def _compute_rms_grid(rms_map: np.ndarray, mask: np.ndarray, n_grid: int = 8) -> tuple[np.ndarray, float]:
-    """Downsample 2D SEP background RMS map to an (n_grid x n_grid) array + global median RMS."""
-    valid = np.where(~mask & np.isfinite(rms_map) & (rms_map > 0), rms_map, np.nan)
-    med_rms = float(np.nanmedian(valid)) if np.any(np.isfinite(valid)) else float(np.nanmedian(rms_map))
-    ny, nx = rms_map.shape
+def _compute_rms_grid(data_sub: np.ndarray, mask: np.ndarray, fallback_rms: float, n_grid: int = 8) -> tuple[np.ndarray, float]:
+    """Compute an (n_grid x n_grid) local background RMS map + median RMS on an 8x8 strided subsample (~64x less RAM)."""
+    sub_d = data_sub[::8, ::8]
+    sub_m = mask[::8, ::8]
+    v_all = sub_d[(~sub_m) & np.isfinite(sub_d)]
+    if len(v_all) > 32:
+        med_v = float(np.median(v_all))
+        med_rms = float(1.4826 * np.median(np.abs(v_all - med_v)))
+        if not np.isfinite(med_rms) or med_rms <= 0:
+            med_rms = float(fallback_rms)
+    else:
+        med_rms = float(fallback_rms)
+    del v_all
+    sny, snx = sub_d.shape
     grid = np.full((n_grid, n_grid), med_rms, dtype=float)
-    ys = np.linspace(0, ny, n_grid + 1, dtype=int)
-    xs = np.linspace(0, nx, n_grid + 1, dtype=int)
+    ys = np.linspace(0, sny, n_grid + 1, dtype=int)
+    xs = np.linspace(0, snx, n_grid + 1, dtype=int)
     for iy in range(n_grid):
         for ix in range(n_grid):
-            patch = valid[ys[iy] : ys[iy + 1], xs[ix] : xs[ix + 1]]
-            if np.any(np.isfinite(patch)):
-                grid[iy, ix] = float(np.nanmedian(patch))
+            p = sub_d[ys[iy] : ys[iy + 1], xs[ix] : xs[ix + 1]]
+            pm = sub_m[ys[iy] : ys[iy + 1], xs[ix] : xs[ix + 1]]
+            vp = p[(~pm) & np.isfinite(p)]
+            if len(vp) > 16:
+                mp = float(np.median(vp))
+                loc_r = float(1.4826 * np.median(np.abs(vp - mp)))
+                if np.isfinite(loc_r) and loc_r > 0:
+                    grid[iy, ix] = loc_r
     return grid, med_rms
 
 
@@ -178,8 +192,13 @@ def extract_stamp_60as(
         dx0, dy0 = sx0 - x0, sy0 - y0
         dx1, dy1 = dx0 + (sx1 - sx0), dy0 + (sy1 - sy0)
         sub_patch = data_sub[sy0:sy1, sx0:sx1]
-        if isinstance(rms_img, np.ndarray):
+        if isinstance(rms_img, np.ndarray) and rms_img.shape == data_sub.shape:
             rms_patch = np.maximum(rms_img[sy0:sy1, sx0:sx1], 1e-6)
+        elif isinstance(rms_img, np.ndarray) and rms_img.ndim == 2:
+            ngy, ngx = rms_img.shape
+            gx = min(ngx - 1, max(0, int(ix / max(nx, 1) * ngx)))
+            gy = min(ngy - 1, max(0, int(iy / max(ny, 1) * ngy)))
+            rms_patch = max(float(rms_img[gy, gx]), 1e-6)
         else:
             rms_patch = max(float(rms_img), 1e-6)
         snr_patch = (sub_patch / rms_patch).astype(np.float32)
@@ -209,16 +228,20 @@ def _extract_plate_sources(
         with fits.open(fits_path, memmap=False) as hdul:
             hdu = None
             for h in hdul:
-                if h.data is not None and h.data.ndim == 2:
+                shp = getattr(h, "shape", ())
+                if isinstance(shp, tuple) and len(shp) == 2 and shp[0] > 0 and shp[1] > 0:
                     hdu = h
                     break
             if hdu is None:
                 return None
 
-            data = np.ascontiguousarray(hdu.data, dtype=np.float32)
+            ny, nx = hdu.shape
             hdr = hdu.header.copy()
-            del hdu.data
-            ny, nx = data.shape
+            data = np.empty((ny, nx), dtype=np.float32)
+            step = 1024
+            for r0 in range(0, ny, step):
+                r1 = min(ny, r0 + step)
+                data[r0:r1, :] = hdu.section[r0:r1, :]
 
             # Handle TNX projection or missing celestial WCS (use APPLAUSE solution header_wcs)
             hdr_wcs = hdr.copy()
@@ -257,11 +280,11 @@ def _extract_plate_sources(
     bkg.subfrom(data)
     data_sub = data
     rms = float(bkg.globalrms)
+    del bkg
     if not np.isfinite(rms) or rms <= 0:
         return None
 
-    rms_grid, med_rms = _compute_rms_grid(bkg.rms(), mask, n_grid=8)
-    del bkg
+    rms_grid, med_rms = _compute_rms_grid(data_sub, mask, rms, n_grid=8)
 
     # Disable multi-threshold deblending (deblend_nthresh=1) to prevent overflow on plate artifacts
     sep.set_extract_pixstack(2_000_000)
@@ -271,7 +294,7 @@ def _extract_plate_sources(
     if len(objs) == 0:
         empty_df = pd.DataFrame(columns=cols)
         if return_image:
-            return empty_df, wcs, (ny, nx), 3.0, rms_grid, med_rms, {"data_sub": data_sub, "rms_img": med_rms, "sat_mask": None}
+            return empty_df, wcs, (ny, nx), 3.0, rms_grid, med_rms, {"data_sub": data_sub, "rms_img": rms_grid, "sat_mask": None}
         return empty_df, wcs, (ny, nx), 3.0, rms_grid, med_rms
 
     df = pd.DataFrame(
@@ -331,7 +354,7 @@ def _extract_plate_sources(
     df["dec"] = sc.dec.deg
     df = df.reset_index(drop=True)
     if return_image:
-        return df[cols], wcs, (ny, nx), med_r, rms_grid, med_rms, {"data_sub": data_sub, "rms_img": rms_img, "sat_mask": sat_mask}
+        return df[cols], wcs, (ny, nx), med_r, rms_grid, med_rms, {"data_sub": data_sub, "rms_img": rms_grid, "sat_mask": None}
     return df[cols], wcs, (ny, nx), med_r, rms_grid, med_rms
 
 
@@ -590,7 +613,15 @@ def process_pair(
             y0, y1 = max(0, iy - r_ap), min(ny_b, iy + r_ap + 1)
             if x1 > x0 and y1 > y0:
                 patch = b_sub[y0:y1, x0:x1]
-                rms_loc = float(np.median(b_rms[y0:y1, x0:x1]))
+                if isinstance(b_rms, np.ndarray) and b_rms.shape == b_sub.shape:
+                    rms_loc = max(float(np.median(b_rms[y0:y1, x0:x1])), 1e-6)
+                elif isinstance(b_rms, np.ndarray) and b_rms.ndim == 2:
+                    ngy, ngx = b_rms.shape
+                    gx = min(ngx - 1, max(0, int(ix / max(nx_b, 1) * ngx)))
+                    gy = min(ngy - 1, max(0, int(iy / max(ny_b, 1) * ngy)))
+                    rms_loc = max(float(b_rms[gy, gx]), 1e-6)
+                else:
+                    rms_loc = max(float(b_rms), 1e-6)
                 ap_snr = abs(float(np.sum(patch))) / (rms_loc * np.sqrt(max(1, patch.size)))
                 abs_pk = float(np.max(np.abs(patch))) / rms_loc
                 if ap_snr > 3.0 or abs_pk > 4.0:

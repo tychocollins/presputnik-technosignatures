@@ -1,0 +1,43 @@
+test,alpha,use_gaia_density,n_plates,k_sunlit_pool,delta_full_depth,non_stellar_frac,crit_z,placebo_fpr,power_depth_scaled,power_unscaled,med_rr_depth_scaled
+"CO-PRIMARY 1: Single-Plate Tier A+B (m >= 8.0, WITH Gaia, N=293)",0.025,True,293,61,0.2,0.531,-2.669,0.022,0.476,0.7685,0.9396
+"CO-PRIMARY 1: Single-Plate Tier A+B (m >= 8.0, WITH Gaia, N=293)",0.025,True,293,61,0.3,0.531,-2.669,0.022,0.8295,0.983,0.8994
+"CO-PRIMARY 1: Single-Plate Tier A+B (m >= 8.0, WITH Gaia, N=293)",0.025,True,293,61,0.4,0.531,-2.669,0.022,0.9705,0.9995,0.8617
+"CO-PRIMARY 1: Single-Plate Tier A+B (m >= 8.0, WITH Gaia, N=293)",0.025,True,293,61,0.5,0.531,-2.669,0.022,0.9995,1.0,0.8237
+"CO-PRIMARY 1: Single-Plate Tier A+B (m >= 8.0, WITH Gaia, N=293)",0.05,True,293,61,0.2,0.531,-2.116,0.047,0.5995,0.861,0.9396
+"CO-PRIMARY 1: Single-Plate Tier A+B (m >= 8.0, WITH Gaia, N=293)",0.05,True,293,61,0.3,0.531,-2.116,0.047,0.9055,0.9935,0.8994
+"CO-PRIMARY 1: Single-Plate Tier A+B (m >= 8.0, WITH Gaia, N=293)",0.05,True,293,61,0.4,0.531,-2.116,0.047,0.9885,1.0,0.8617
+"CO-PRIMARY 1: Single-Plate Tier A+B (m >= 8.0, WITH Gaia, N=293)",0.05,True,293,61,0.5,0.531,-2.116,0.047,1.0,1.0,0.8237
+"ABLAT: Single-Plate Tier A+B (m >= 8.0, NO Gaia, N=293)",0.025,False,293,61,0.2,0.531,-2.607,0.0255,0.4965,0.795,0.9385
+"ABLAT: Single-Plate Tier A+B (m >= 8.0, NO Gaia, N=293)",0.025,False,293,61,0.3,0.531,-2.607,0.0255,0.826,0.9845,0.9021
+"ABLAT: Single-Plate Tier A+B (m >= 8.0, NO Gaia, N=293)",0.025,False,293,61,0.4,0.531,-2.607,0.0255,0.9705,1.0,0.8627
+"ABLAT: Single-Plate Tier A+B (m >= 8.0, NO Gaia, N=293)",0.025,False,293,61,0.5,0.531,-2.607,0.0255,0.9985,1.0,0.8248
+"ABLAT: Single-Plate Tier A+B (m >= 8.0, NO Gaia, N=293)",0.05,False,293,61,0.2,0.531,-2.062,0.055,0.632,0.875,0.9385
+"ABLAT: Single-Plate Tier A+B (m >= 8.0, NO Gaia, N=293)",0.05,False,293,61,0.3,0.531,-2.062,0.055,0.9025,0.994,0.9021
+"ABLAT: Single-Plate Tier A+B (m >= 8.0, NO Gaia, N=293)",0.05,False,293,61,0.4,0.531,-2.062,0.055,0.987,1.0,0.8627
+"ABLAT: Single-Plate Tier A+B (m >= 8.0, NO Gaia, N=293)",0.05,False,293,61,0.5,0.531,-2.062,0.055,0.9995,1.0,0.8248
+"CO-PRIMARY 2: Single-Plate Tier A+B (m >= 9.0, WITH Gaia, N=61)",0.05,True,61,32,0.2,0.531,-2.428,0.0485,0.3345,0.521,0.9301
+"CO-PRIMARY 2: Single-Plate Tier A+B (m >= 9.0, WITH Gaia, N=61)",0.05,True,61,32,0.3,0.531,-2.428,0.0485,0.5915,0.802,0.8904
+"CO-PRIMARY 2: Single-Plate Tier A+B (m >= 9.0, WITH Gaia, N=61)",0.05,True,61,32,0.4,0.531,-2.428,0.0485,0.7945,0.957,0.8563
+"CO-PRIMARY 2: Single-Plate Tier A+B (m >= 9.0, WITH Gaia, N=61)",0.05,True,61,32,0.5,0.531,-2.428,0.0485,0.921,0.994,0.8149
+"CO-PRIMARY 2: Single-Plate Tier A+B (m >= 9.0, WITH Gaia, N=61)",0.025,True,61,32,0.2,0.531,-2.991,0.0235,0.229,0.37,0.9301
+"CO-PRIMARY 2: Single-Plate Tier A+B (m >= 9.0, WITH Gaia, N=61)",0.025,True,61,32,0.3,0.531,-2.991,0.0235,0.4615,0.692,0.8904
+"CO-PRIMARY 2: Single-Plate Tier A+B (m >= 9.0, WITH Gaia, N=61)",0.025,True,61,32,0.4,0.531,-2.991,0.0235,0.68,0.917,0.8563
+"CO-PRIMARY 2: Single-Plate Tier A+B (m >= 9.0, WITH Gaia, N=61)",0.025,True,61,32,0.5,0.531,-2.991,0.0235,0.8615,0.985,0.8149
+"ABLAT: Single-Plate Tier A+B (m >= 9.0, NO Gaia, N=61)",0.05,False,61,32,0.2,0.531,-2.312,0.0595,0.369,0.535,0.9321
+"ABLAT: Single-Plate Tier A+B (m >= 9.0, NO Gaia, N=61)",0.05,False,61,32,0.3,0.531,-2.312,0.0595,0.6125,0.8285,0.8915
+"ABLAT: Single-Plate Tier A+B (m >= 9.0, NO Gaia, N=61)",0.05,False,61,32,0.4,0.531,-2.312,0.0595,0.8215,0.9645,0.8508
+"ABLAT: Single-Plate Tier A+B (m >= 9.0, NO Gaia, N=61)",0.05,False,61,32,0.5,0.531,-2.312,0.0595,0.925,0.998,0.8158
+CO-PRIMARY HOLM JOINT (m8@0.025 -> m9@0.05),0.05,True,293,61,0.2,0.531,-2.66,0.0425,0.401,0.8495,0.1755
+CO-PRIMARY HOLM JOINT (m8@0.025 -> m9@0.05),0.05,True,293,61,0.3,0.531,-2.66,0.0425,0.674,0.9955,0.425
+CO-PRIMARY HOLM JOINT (m8@0.025 -> m9@0.05),0.05,True,293,61,0.4,0.531,-2.66,0.0425,0.913,1.0,0.741
+CO-PRIMARY HOLM JOINT (m8@0.025 -> m9@0.05),0.05,True,293,61,0.5,0.531,-2.66,0.0425,0.9855,1.0,0.9205
+"KEY SECONDARY: Strict Paired Tier A (m >= 8.0, partner-vetoed, N=95)",0.05,False,95,102,0.2,1.0,-1.962,0.046,0.2195,0.2835,0.8433
+"KEY SECONDARY: Strict Paired Tier A (m >= 8.0, partner-vetoed, N=95)",0.05,False,95,102,0.3,1.0,-1.962,0.046,0.358,0.498,0.7634
+"KEY SECONDARY: Strict Paired Tier A (m >= 8.0, partner-vetoed, N=95)",0.05,False,95,102,0.4,1.0,-1.962,0.046,0.5855,0.785,0.6817
+"KEY SECONDARY: Strict Paired Tier A (m >= 8.0, partner-vetoed, N=95)",0.05,False,95,102,0.5,1.0,-1.962,0.046,0.788,0.933,0.5964
+"KEY SECONDARY: Strict Paired Tier A (m >= 8.0, partner-vetoed, N=95)",0.05,False,95,102,0.6,1.0,-1.962,0.046,0.8945,0.992,0.5122
+"KEY SECONDARY: Strict Paired Tier A (m >= 8.0, partner-vetoed, N=95)",0.05,False,95,102,0.7,1.0,-1.962,0.046,0.9715,0.9985,0.4301
+"SECONDARY: Full-Shadow Across-Plate (m >= 9.0, sf >= 0.95, N=47)",0.05,False,47,231,0.2,0.531,-1.723,0.052,0.076,0.0965,0.9244
+"SECONDARY: Full-Shadow Across-Plate (m >= 9.0, sf >= 0.95, N=47)",0.05,False,47,231,0.3,0.531,-1.723,0.052,0.0955,0.1115,0.868
+"SECONDARY: Full-Shadow Across-Plate (m >= 9.0, sf >= 0.95, N=47)",0.05,False,47,231,0.4,0.531,-1.723,0.052,0.1085,0.1645,0.8237
+"SECONDARY: Full-Shadow Across-Plate (m >= 9.0, sf >= 0.95, N=47)",0.05,False,47,231,0.5,0.531,-1.723,0.052,0.164,0.1905,0.7714

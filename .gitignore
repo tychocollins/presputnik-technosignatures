@@ -12,4 +12,6 @@ data/processed/*
 !data/processed/phase2b_manifest.parquet
 !data/processed/phase2b_paired_tierA_links.parquet
 !data/processed/final_frozen_power_calibration.csv
+!data/processed/amendment2_realized_power_calibration.csv
+!data/processed/phase2b_step1_qc_fairness.csv
 !data/processed/blind_human_audit_50_v2_human_labels.csv

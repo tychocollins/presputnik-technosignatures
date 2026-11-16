@@ -40,6 +40,55 @@ from src.final_frozen_calibration import (
 from src.geometry import points_in_umbra
 from src.within_plate_power import _cmh_stat
 
+# Frozen Instrument Operational Date-Sanity Bounds (UTC YYYY-MM-DD: [first_light, decommissioning]).
+# Sources:
+#   - Harvard College Observatory Plate Stacks / StarGlass Series Catalog (Hazen 1991; Laycock et al. 2010;
+#     Grindlay et al. 2012, IAUS 285; starglass.cfa.harvard.edu): series a, adh, b, br, c, h, i, ir, j, ma, mc, mf, rh, x, ac.
+#   - Lindsay (1952, Irish Astron. J. 2, 99) & Butler (2007, Irish Astron. J.) for 24-in Bruce decommissioning (1950)
+#     and repurposing of its mount for the 32-36 in ADH Baker-Schmidt first light at Boyden (Nov 1950 - 1981).
+#   - APPLAUSE DR4 Observatory & Instrument Catalog (Tuvikene et al. 2014, Astron. Nachr. 335, 74; Hamburger Sternwarte;
+#     Dr. Karl Remeis-Sternwarte Bamberg; Tartu Old Observatory obs.ee): archives 101-111, 208, 301.
+INSTRUMENT_OPERATIONAL_BOUNDS: dict[str, tuple[str, str]] = {
+    "16-inch Metcalf Doublet (Refigured after 3500)": ("1909-01-01", "1989-12-31"),
+    "10-inch Metcalf Triplet": ("1914-01-01", "1956-12-31"),
+    "12-inch Metcalf Doublet": ("1905-01-01", "1953-12-31"),
+    "24-inch Bruce Doublet": ("1893-01-01", "1950-11-01"),
+    "32-36 inch BakerSchmidt 10 1/2 inch round Armagh-Dunsink-Harvard": ("1950-11-01", "1981-12-31"),
+    "24-33 in Jewett Schmidt": ("1941-01-01", "1958-12-31"),
+    "8-inch Ross Lundin": ("1934-01-01", "1976-12-31"),
+    "4-inch Ross Lundin": ("1934-01-01", "1960-12-31"),
+    "8-inch Bache Doublet": ("1885-01-01", "1955-12-31"),
+    "8-inch Draper Doublet": ("1889-01-01", "1946-12-31"),
+    "11-inch Draper Refractor": ("1887-01-01", "1946-12-31"),
+    "13-inch Boyden Refractor": ("1887-01-01", "1950-12-31"),
+    "24-inch Clark Reflector": ("1904-01-01", "1937-12-31"),
+    "1.5-inch Cooke Lenses": ("1898-01-01", "1958-12-31"),
+    "3-inch Ross Fecker": ("1928-01-01", "1961-12-31"),
+    "8-inch Brashear Lens": ("1938-01-01", "1953-12-31"),
+    "1m-Spiegelteleskop": ("1911-01-01", "1998-12-31"),
+    "Lippert-Astrograph": ("1911-01-01", "1975-12-31"),
+    "Original Schmidt-Spiegel": ("1930-01-01", "1956-12-31"),
+    "Grosser Schmidt-Spiegel": ("1954-08-01", "1975-12-31"),
+    "Kleiner Schmidt-Spiegel II": ("1950-01-01", "1965-12-31"),
+    "Doppel-Reflektor": ("1939-01-01", "1975-12-31"),
+    "Grosser Refraktor": ("1911-01-01", "1975-12-31"),
+    "Astrograph": ("1926-01-01", "1964-12-31"),
+    "Petzval": ("1911-01-01", "1964-12-31"),
+}
+
+
+def filter_instrument_date_sanity(df: pd.DataFrame, mjd_col: str = "mjd_mid", inst_col: str = "instrument") -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return (valid_df, excluded_df) enforcing documented per-instrument [first_light, decommissioning] UTC bounds."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        isos = [Time(float(x), format="mjd", scale="utc").iso[:10] for x in df[mjd_col].to_numpy(dtype=float)]
+    keep = np.ones(len(df), dtype=bool)
+    for idx, (inst, iso) in enumerate(zip(df[inst_col].astype(str), isos)):
+        bounds = INSTRUMENT_OPERATIONAL_BOUNDS.get(inst)
+        if bounds is not None and (iso < bounds[0] or iso > bounds[1]):
+            keep[idx] = False
+    return df[keep].copy(), df[~keep].copy()
+
 
 def _assign_batches(df_meta: pd.DataFrame) -> dict[str, int]:
     """Assign series-run batch_id (|Δserial| <= 50 and |ΔMJD| <= 30 d within archive+series)."""
@@ -604,9 +653,14 @@ def run_amendment2_calibration(n_sim: int = 2000, seed: int = 20261116) -> None:
     links = pd.read_parquet("data/processed/phase2b_paired_tierA_links.parquet")
 
     m_qc = p2b_qc.merge(
-        man[["exposure_id", "shadow_fraction", "ra_deg", "dec_deg", "fov_ra_deg", "fov_dec_deg", "obs_lat_deg", "obs_lon_deg", "obs_elev_m", "mjd_start", "exptime_sec"]],
+        man[["exposure_id", "mjd_mid", "shadow_fraction", "ra_deg", "dec_deg", "fov_ra_deg", "fov_dec_deg", "obs_lat_deg", "obs_lon_deg", "obs_elev_m", "mjd_start", "exptime_sec"]],
         on="exposure_id",
         how="left",
+    )
+    m_qc, m_date_excl = filter_instrument_date_sanity(m_qc, mjd_col="mjd_mid", inst_col="instrument")
+    print(
+        f"Instrument date-sanity filter: excluded {len(m_date_excl)} raw Phase 2b exposures "
+        f"({int(m_date_excl['qc_pass'].sum())} QC-passing plates removed)."
     )
 
     # Realized QC-passing sets (strictly metadata + qc_pass)

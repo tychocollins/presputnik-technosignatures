@@ -15,3 +15,10 @@ data/processed/*
 !data/processed/amendment2_realized_power_calibration.csv
 !data/processed/phase2b_step1_qc_fairness.csv
 !data/processed/blind_human_audit_50_v2_human_labels.csv
+!data/processed/phase2b_unblinded_results.json
+!data/processed/phase2b_coprimary_m8_plates.csv
+!data/processed/phase2b_coprimary_m9_plates.csv
+!data/processed/phase2b_paired_tierA_plates.csv
+!data/processed/phase2b_step4_shifted_dates.csv
+!data/processed/phase2b_step4_fake_altitudes.csv
+!data/processed/phase2b_step5_dose_response.csv

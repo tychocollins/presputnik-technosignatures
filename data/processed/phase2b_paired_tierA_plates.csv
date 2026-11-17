@@ -1,0 +1,96 @@
+exposure_id,partner_id,instrument,p_raw,p_i,n_tot,n_in,n_out
+DASCH_a12062,DASCH_a12061,24-inch Bruce Doublet,0.3982,0.3982,0,0,0
+DASCH_a13404,DASCH_a13402,24-inch Bruce Doublet,0.3474,0.3474,0,0,0
+DASCH_a13411,DASCH_a13413,24-inch Bruce Doublet,0.0676,0.0676,0,0,0
+DASCH_a13413,DASCH_a13411,24-inch Bruce Doublet,0.0238,0.0238,0,0,0
+DASCH_a13483,DASCH_a13482,24-inch Bruce Doublet,0.0083,0.02,0,0,0
+DASCH_a14771,DASCH_a14774,24-inch Bruce Doublet,0.5925,0.5925,0,0,0
+DASCH_a14777,DASCH_a14780,24-inch Bruce Doublet,0.8088,0.8088,0,0,0
+DASCH_a14783,DASCH_a14786,24-inch Bruce Doublet,0.5943,0.5943,0,0,0
+DASCH_a18622,DASCH_a18620,24-inch Bruce Doublet,0.3973,0.3973,0,0,0
+DASCH_a18628,DASCH_a18626,24-inch Bruce Doublet,0.8233,0.8233,0,0,0
+DASCH_a18642,DASCH_a18646,24-inch Bruce Doublet,0.975,0.975,0,0,0
+DASCH_a18651,DASCH_a18655,24-inch Bruce Doublet,0.7873,0.7873,0,0,0
+DASCH_a27210,DASCH_a27224,24-inch Bruce Doublet,0.8661,0.8661,0,0,0
+DASCH_a27222,DASCH_a27212,24-inch Bruce Doublet,0.4488,0.4488,0,0,0
+DASCH_a27223,DASCH_a27211,24-inch Bruce Doublet,0.795,0.795,0,0,0
+DASCH_a27224,DASCH_a27210,24-inch Bruce Doublet,0.8828,0.8828,0,0,0
+DASCH_a27227,DASCH_a27212,24-inch Bruce Doublet,0.9812,0.98,0,0,0
+DASCH_adh01930,DASCH_adh01931,32-36 inch BakerSchmidt 10 1/2 inch round Armagh-Dunsink-Harvard,0.4335,0.4335,0,0,0
+DASCH_adh01931,DASCH_adh01930,32-36 inch BakerSchmidt 10 1/2 inch round Armagh-Dunsink-Harvard,0.3139,0.3139,0,0,0
+DASCH_b58450,DASCH_b58456,8-inch Bache Doublet,0.9136,0.9136,0,0,0
+DASCH_b58485,DASCH_b58489,8-inch Bache Doublet,0.9755,0.9755,0,0,0
+DASCH_b58837,DASCH_b58840,8-inch Bache Doublet,0.6789,0.6789,0,0,0
+DASCH_b58840,DASCH_b58837,8-inch Bache Doublet,0.6981,0.6981,0,0,0
+DASCH_b58844,DASCH_b58840,8-inch Bache Doublet,0.7003,0.7003,0,0,0
+DASCH_b62239,DASCH_b62243,8-inch Bache Doublet,0.5951,0.5951,0,0,0
+DASCH_b62243,DASCH_b62239,8-inch Bache Doublet,0.6876,0.6876,0,0,0
+DASCH_i52642,DASCH_i52643,8-inch Draper Doublet,0.3025,0.3025,0,0,0
+DASCH_i52643,DASCH_i52642,8-inch Draper Doublet,0.1136,0.1136,0,0,0
+DASCH_i53958,DASCH_i53960,8-inch Draper Doublet,0.0622,0.0622,3,0,3
+DASCH_ir03454,DASCH_ir03462,8-inch Ross Lundin,0.9978,0.98,1,0,1
+DASCH_ir03462,DASCH_ir03468,8-inch Ross Lundin,0.9442,0.9442,1,1,0
+DASCH_ir03468,DASCH_ir03462,8-inch Ross Lundin,0.6583,0.6583,3,3,0
+DASCH_ir05427,DASCH_ir05429,8-inch Ross Lundin,0.1659,0.1659,0,0,0
+DASCH_ir05429,DASCH_ir05430,8-inch Ross Lundin,0.1488,0.1488,0,0,0
+DASCH_ir05430,DASCH_ir05429,8-inch Ross Lundin,0.1631,0.1631,0,0,0
+DASCH_ir05432,DASCH_ir05433,8-inch Ross Lundin,0.384,0.384,0,0,0
+DASCH_ir05433,DASCH_ir05435,8-inch Ross Lundin,0.2548,0.2548,0,0,0
+DASCH_ir05435,DASCH_ir05436,8-inch Ross Lundin,0.2113,0.2113,0,0,0
+DASCH_ir05436,DASCH_ir05435,8-inch Ross Lundin,0.1936,0.1936,0,0,0
+DASCH_ir05438,DASCH_ir05449,8-inch Ross Lundin,0.7789,0.7789,0,0,0
+DASCH_ir05449,DASCH_ir05451,8-inch Ross Lundin,0.9112,0.9112,0,0,0
+DASCH_ir05451,DASCH_ir05449,8-inch Ross Lundin,0.9401,0.9401,0,0,0
+DASCH_ir05452,DASCH_ir05456,8-inch Ross Lundin,0.0248,0.0248,0,0,0
+DASCH_ir05453,DASCH_ir05451,8-inch Ross Lundin,0.9802,0.98,0,0,0
+DASCH_ir05455,DASCH_ir05457,8-inch Ross Lundin,0.4391,0.4391,0,0,0
+DASCH_ir05457,DASCH_ir05458,8-inch Ross Lundin,0.2502,0.2502,0,0,0
+DASCH_ir05458,DASCH_ir05457,8-inch Ross Lundin,0.2223,0.2223,0,0,0
+DASCH_ir06745,DASCH_ir06746,8-inch Ross Lundin,0.0873,0.0873,1,0,1
+DASCH_ir06746,DASCH_ir06747,8-inch Ross Lundin,0.0848,0.0848,2,0,2
+DASCH_ir06747,DASCH_ir06746,8-inch Ross Lundin,0.0777,0.0777,0,0,0
+DASCH_ir06749,DASCH_ir06750,8-inch Ross Lundin,0.1308,0.1308,0,0,0
+DASCH_ir06750,DASCH_ir06749,8-inch Ross Lundin,0.1297,0.1297,0,0,0
+DASCH_ir06752,DASCH_ir06753,8-inch Ross Lundin,0.6932,0.6932,1,1,0
+DASCH_ir06753,DASCH_ir06752,8-inch Ross Lundin,0.6405,0.6405,0,0,0
+DASCH_ir06759,DASCH_ir06760,8-inch Ross Lundin,0.1773,0.1773,0,0,0
+DASCH_ir06760,DASCH_ir06759,8-inch Ross Lundin,0.1647,0.1647,0,0,0
+DASCH_j02746,DASCH_j02747,24-33 in Jewett Schmidt,0.4739,0.4739,0,0,0
+DASCH_j02747,DASCH_j02746,24-33 in Jewett Schmidt,0.4563,0.4563,14,6,8
+DASCH_j04691,DASCH_j04690,24-33 in Jewett Schmidt,0.8115,0.8115,0,0,0
+DASCH_ma07402,DASCH_ma07403,12-inch Metcalf Doublet,0.4531,0.4531,0,0,0
+DASCH_ma07403,DASCH_ma07402,12-inch Metcalf Doublet,0.5925,0.5925,0,0,0
+DASCH_mc26934,DASCH_mc26936,16-inch Metcalf Doublet (Refigured after 3500),0.487,0.487,0,0,0
+DASCH_mc26936,DASCH_mc26934,16-inch Metcalf Doublet (Refigured after 3500),0.0546,0.0546,0,0,0
+DASCH_mc31799,DASCH_mc31800,16-inch Metcalf Doublet (Refigured after 3500),0.92,0.92,0,0,0
+DASCH_mc31800,DASCH_mc31799,16-inch Metcalf Doublet (Refigured after 3500),0.9789,0.9789,0,0,0
+DASCH_mc32837,DASCH_mc32838,16-inch Metcalf Doublet (Refigured after 3500),0.8341,0.8341,0,0,0
+DASCH_mc32838,DASCH_mc32837,16-inch Metcalf Doublet (Refigured after 3500),0.482,0.482,0,0,0
+DASCH_mc32839,DASCH_mc32838,16-inch Metcalf Doublet (Refigured after 3500),0.2226,0.2226,0,0,0
+DASCH_mc35586,DASCH_mc35587,16-inch Metcalf Doublet (Refigured after 3500),0.67,0.67,0,0,0
+DASCH_mc35587,DASCH_mc35586,16-inch Metcalf Doublet (Refigured after 3500),0.8032,0.8032,0,0,0
+DASCH_mc37186,DASCH_mc37192,16-inch Metcalf Doublet (Refigured after 3500),0.4325,0.4325,0,0,0
+DASCH_mc37192,DASCH_mc37186,16-inch Metcalf Doublet (Refigured after 3500),0.3196,0.3196,0,0,0
+DASCH_mc37260,DASCH_mc37259,16-inch Metcalf Doublet (Refigured after 3500),0.0347,0.0347,0,0,0
+DASCH_mc37261,DASCH_mc37260,16-inch Metcalf Doublet (Refigured after 3500),0.4297,0.4297,0,0,0
+DASCH_mc38304,DASCH_mc38310,16-inch Metcalf Doublet (Refigured after 3500),0.7499,0.7499,0,0,0
+DASCH_mc38310,DASCH_mc38304,16-inch Metcalf Doublet (Refigured after 3500),0.908,0.908,0,0,0
+DASCH_mc38311,DASCH_mc38305,16-inch Metcalf Doublet (Refigured after 3500),0.1552,0.1552,0,0,0
+DASCH_mc38445,DASCH_mc38446,16-inch Metcalf Doublet (Refigured after 3500),0.0756,0.0756,0,0,0
+DASCH_mc38446,DASCH_mc38445,16-inch Metcalf Doublet (Refigured after 3500),0.0009,0.02,0,0,0
+DASCH_mf15831,DASCH_mf15834,10-inch Metcalf Triplet,0.9225,0.9225,0,0,0
+DASCH_mf15881,DASCH_mf15884,10-inch Metcalf Triplet,0.0095,0.02,0,0,0
+DASCH_mf15884,DASCH_mf15881,10-inch Metcalf Triplet,0.2597,0.2597,0,0,0
+DASCH_mf19391,DASCH_mf19389,10-inch Metcalf Triplet,0.0085,0.02,0,0,0
+DASCH_mf19425,DASCH_mf19422,10-inch Metcalf Triplet,0.0148,0.02,0,0,0
+DASCH_mf19428,DASCH_mf19425,10-inch Metcalf Triplet,0.0094,0.02,0,0,0
+DASCH_mf24299,DASCH_mf24308,10-inch Metcalf Triplet,0.4461,0.4461,0,0,0
+DASCH_mf24308,DASCH_mf24299,10-inch Metcalf Triplet,0.5495,0.5495,0,0,0
+DASCH_mf39040,DASCH_mf39030,10-inch Metcalf Triplet,0.0379,0.0379,0,0,0
+DASCH_mf39074,DASCH_mf39075,10-inch Metcalf Triplet,0.5184,0.5184,0,0,0
+DASCH_mf39075,DASCH_mf39074,10-inch Metcalf Triplet,0.6728,0.6728,0,0,0
+DASCH_mf39079,DASCH_mf39080,10-inch Metcalf Triplet,0.7932,0.7932,0,0,0
+DASCH_mf39080,DASCH_mf39081,10-inch Metcalf Triplet,0.7868,0.7868,0,0,0
+DASCH_mf39081,DASCH_mf39080,10-inch Metcalf Triplet,0.7362,0.7362,0,0,0
+DASCH_mf39089,DASCH_mf39090,10-inch Metcalf Triplet,0.4698,0.4698,0,0,0
+DASCH_mf39090,DASCH_mf39089,10-inch Metcalf Triplet,0.5853,0.5853,0,0,0

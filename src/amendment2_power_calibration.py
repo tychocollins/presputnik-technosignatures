@@ -40,14 +40,17 @@ from src.final_frozen_calibration import (
 from src.geometry import points_in_umbra
 from src.within_plate_power import _cmh_stat
 
-# Frozen Instrument Operational Date-Sanity Bounds (UTC YYYY-MM-DD: [first_light, decommissioning]).
-# Sources:
-#   - Harvard College Observatory Plate Stacks / StarGlass Series Catalog (Hazen 1991; Laycock et al. 2010;
-#     Grindlay et al. 2012, IAUS 285; starglass.cfa.harvard.edu): series a, adh, b, br, c, h, i, ir, j, ma, mc, mf, rh, x, ac.
-#   - Lindsay (1952, Irish Astron. J. 2, 99) & Butler (2007, Irish Astron. J.) for 24-in Bruce decommissioning (1950)
-#     and repurposing of its mount for the 32-36 in ADH Baker-Schmidt first light at Boyden (Nov 1950 - 1981).
-#   - APPLAUSE DR4 Observatory & Instrument Catalog (Tuvikene et al. 2014, Astron. Nachr. 335, 74; Hamburger Sternwarte;
-#     Dr. Karl Remeis-Sternwarte Bamberg; Tartu Old Observatory obs.ee): archives 101-111, 208, 301.
+# Frozen Approximate Instrument Operational Date-Sanity Bounds (UTC YYYY-MM-DD: [first_light, decommissioning]).
+# Verified Sources:
+#   - [1] DASCH & Harvard Plate Stacks / StarGlass Series Catalog (https://starglass.cfa.harvard.edu/):
+#         Laycock et al. (2010, AJ, 140, 1062; ADS: 2010AJ....140.1062L);
+#         Grindlay et al. (2012, IAU Symp. 285, 29; ADS: 2012IAUS..285...29G).
+#   - [2] Butler, C. J. (2007, Journal of Astronomical History and Heritage, 10(3), 173-178; ADS: 2007JAHH...10..173B),
+#         "The Armagh-Dunsink-Harvard Telescope: From Dream to Oblivion" (ADH erected at Boyden in 1950 on the
+#         retired 24-inch Bruce mounting; raw DASCH catalog confirms adh00001 = 1950-11-27, while adh02437-02450
+#         are a 1954->1945 digit transposition between adh02436 [1954-06-08] and adh02451 [1954-06-20]).
+#   - [3] APPLAUSE DR4 Metadata & Instrument Catalog (https://www.plate-archive.org/):
+#         Enke, Tuvikene, Groote, Edelmann & Heber (2024, arXiv:2404.17355).
 INSTRUMENT_OPERATIONAL_BOUNDS: dict[str, tuple[str, str]] = {
     "16-inch Metcalf Doublet (Refigured after 3500)": ("1909-01-01", "1989-12-31"),
     "10-inch Metcalf Triplet": ("1914-01-01", "1956-12-31"),

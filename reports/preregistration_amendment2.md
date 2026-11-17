@@ -27,7 +27,7 @@ Following OSF registration of Amendment 1 (DOI: 10.17605/OSF.IO/5PQDZ; project: 
 **All extraction, calibration, quality-check, Final Frozen Filter v1.2, expected in-shadow share p_i, negative-control, and paired Tier A partner rules remain unchanged.** Three pre-outcome rules are added:
 
 ### 3.1 Frozen instrument operational date-sanity rule
-Any exposure whose mid-exposure UTC date precedes its instrument's documented first light or follows its decommissioning (Appendix A; implemented in filter_instrument_date_sanity in src/amendment2_power_calibration.py) is excluded prior to analysis. Applying this rule across all 1,117 Phase 2b exposures and all 773 sunlit calibration exposures removes **4 raw QC-failing exposures** (DASCH_adh02437, adh02442, adh02443, adh02448, dated 1945-06-08/09, all qc_pass = False) and **0 QC-passing plates** from every test:
+Any exposure whose mid-exposure UTC date falls outside its instrument's approximate operational bounds (Appendix A; implemented in filter_instrument_date_sanity in src/amendment2_power_calibration.py) is excluded prior to analysis. Applying this rule across all 1,117 Phase 2b exposures and all 773 sunlit calibration exposures removes **4 raw QC-failing exposures** (DASCH_adh02437, adh02442, adh02443, adh02448, dated 1945-06-08/09, all qc_pass = False) and **0 QC-passing plates** from every test:
 - Co-Primary 1 (mag ≥ 8.0 single-plate): **0 QC-passing plates removed** (N = 293 unchanged; 293 / 806 = 36.4% valid raw).
 - Co-Primary 2 (mag ≥ 9.0 single-plate): **0 QC-passing plates removed** (N = 61 unchanged; 61 / 272 = 22.4% valid raw).
 - Key Secondary (strict paired Tier A, mag ≥ 8.0): **0 QC-passing target or partner plates removed** (N = 95 unchanged).
@@ -69,33 +69,37 @@ All figures below (data/processed/amendment2_realized_power_calibration.csv) are
 - **Strict Paired Tier A (mag ≥ 8.0, N = 95):** Standalone α = 0.05 power at 30% rose from 19.4% / 22.3% (at projected N = 66) to **35.8% / 49.8%** (**89.5% / 99.2%** at 60%, **97.2% / 99.9%** at 70%), while its directional gate probability (RR_MH < 1 and Z < 0, Gate c) is **94.9% / 98.3%** at a 30% deficit.
 - **Full-Shadow Across-Plate Test (mag ≥ 9.0, shadow fraction ≥ 0.95, N = 47 vs. 231 sunlit mag ≥ 9.0 plates — Pre-Registered but Uninformative):** Because plate-to-plate candidate count overdispersion overwhelms a 47-plate across-plate comparison, standalone power is **≈10% (9.6% depth-scaled / 11.2% unscaled at 30%)**. Because it was pre-registered, it will be retained and reported for completeness, **explicitly labeled uninformative and without substantive interpretation**.
 
-## Appendix A. Frozen instrument operational date-sanity bounds
+## Appendix A. Approximate instrument operational date-sanity bounds
 
-Exposures outside the UTC operational bounds below are excluded prior to analysis. Sources: **[1]** Harvard College Observatory Plate Stacks & StarGlass Series Catalog (Hazen 1991; Laycock et al. 2010, ApJ 710, 1790; Grindlay et al. 2012, IAUS 285, 29; starglass.cfa.harvard.edu); **[2]** Lindsay (1952, Irish Astron. J. 2, 99) & Butler (2007, Irish Astron. J.) for 24-inch Bruce retirement (1950) and reuse of its mounting for ADH Baker-Schmidt first light at Boyden (Nov 1950–1981); **[3]** APPLAUSE DR4 Observatory & Instrument Catalog (Tuvikene et al. 2014, Astron. Nachr. 335, 74; Hamburger Sternwarte Bergedorf; Dr. Karl Remeis-Sternwarte Bamberg; Tartu Old Observatory, obs.ee).
+Exposures outside the approximate UTC operational bounds below (compiled from the Harvard plate series catalog and APPLAUSE DR4 metadata) are excluded prior to analysis. Verified sources:
+- **[1] DASCH & Harvard Plate Stacks / StarGlass Series Catalog** (https://starglass.cfa.harvard.edu/): Laycock, S., Tang, S., Grindlay, J., Los, E., Simcoe, R., & Mink, D. (2010), "Digital Access to a Sky Century at Harvard. II: Initial Photometry and Astrometry," *AJ*, 140(4), 1062–1077 (ADS: 2010AJ....140.1062L); Grindlay, J., Tang, S., Los, E., & Servillat, M. (2012), "Opening the 100-Year Window for Time-Domain Astronomy," *IAU Symp.* 285, 29–34 (ADS: 2012IAUS..285...29G).
+- **[2] ADH Baker-Schmidt & 24-inch Bruce Transition:** Butler, C. J. (2007), "The Armagh-Dunsink-Harvard Telescope: From Dream to Oblivion," *Journal of Astronomical History and Heritage*, 10(3), 173–178 (ADS: 2007JAHH...10..173B), documenting erection of the ADH Baker-Schmidt at Boyden Observatory in 1950 on the mounting of the retired 24-inch Bruce Doublet. Direct inspection of the raw DASCH adh catalog confirms plate #1 (adh00001) was exposed on 1950-11-27 (adh00002–00005 on 1950-11-30), whereas adh02437–02450 (dated 1945-06-08 to 1945-06-19) are a 1954 → 1945 digit transposition bracketed by adh02436 (1954-06-08) and adh02451 (1954-06-20).
+- **[3] APPLAUSE DR4 Metadata & Instrument Catalog** (https://www.plate-archive.org/): Enke, H., Tuvikene, T., Groote, D., Edelmann, H., & Heber, U. (2024), "Archives of Photographic PLates for Astronomical USE (APPLAUSE): Digitisation of astronomical plates and their integration into the International Virtual Observatory," arXiv:2404.17355.
 
-| Archive / Series | Instrument | Operational Bounds (UTC) | Source | Removed (Raw / QC) |
+| Archive / Series | Instrument | Approximate Operational Bounds (UTC) | Source | Removed (Raw / QC) |
 |---|---|---|---|---:|
-| DASCH `mc` | 16-inch Metcalf Doublet (Refigured after 3500) | 1909-01-01 to 1989-12-31 | [1] | 0 / 0 |
-| DASCH `mf` | 10-inch Metcalf Triplet | 1914-01-01 to 1956-12-31 | [1] | 0 / 0 |
-| DASCH `ma` | 12-inch Metcalf Doublet | 1905-01-01 to 1953-12-31 | [1] | 0 / 0 |
-| DASCH `a` | 24-inch Bruce Doublet | 1893-01-01 to 1950-11-01 | [1, 2] | 0 / 0 |
-| DASCH `adh` | 32–36 in Baker-Schmidt (Armagh-Dunsink-Harvard) | 1950-11-01 to 1981-12-31 | [1, 2] | **4 / 0** |
-| DASCH `j` | 24–33 in Jewett Schmidt | 1941-01-01 to 1958-12-31 | [1] | 0 / 0 |
-| DASCH `ir` / `rl` | 8-inch & 4-inch Ross-Lundin | 1934-01-01 to 1976-12-31 | [1] | 0 / 0 |
-| DASCH `b` | 8-inch Bache Doublet | 1885-01-01 to 1955-12-31 | [1] | 0 / 0 |
-| DASCH `i` / `c` | 8-inch Draper Doublet / 11-inch Draper Refractor | 1887-01-01 to 1946-12-31 | [1] | 0 / 0 |
-| DASCH `x` | 13-inch Boyden Refractor | 1887-01-01 to 1950-12-31 | [1] | 0 / 0 |
-| DASCH `h` | 24-inch Clark Reflector | 1904-01-01 to 1937-12-31 | [1] | 0 / 0 |
-| DASCH `ac`/`rh`/`br` | 1.5-in Cooke (1898–1958), 3-in Ross-Fecker (1928–1961), 8-in Brashear (1938–1953) | Per-series bounds in code | [1] | 0 / 0 |
-| APPLAUSE `103` | 1m-Spiegelteleskop (Hamburg Bergedorf) | 1911-01-01 to 1998-12-31 | [3] | 0 / 0 |
-| APPLAUSE `101`/`107`/`109` | Lippert-Astrograph (1911–1975), Doppel-Reflektor (1939–1975), Grosser Refraktor (1911–1975) | Per-instrument bounds | [3] | 0 / 0 |
-| APPLAUSE `111`/`110`/`102` | Original Schmidt (1930–1956), Kleiner Schmidt II (1950–1965), Grosser Schmidt (1954-08 to 1975) | Per-instrument bounds | [3] | 0 / 0 |
-| APPLAUSE `208`/`301` | Bamberg Northern Patrol Astrograph (1926–1964), Tartu 6-in Petzval (1911–1964) | Per-instrument bounds | [3] | 0 / 0 |
+| DASCH `mc` | 16-inch Metcalf Doublet (Refigured after 3500) | 1909-01-01 to 1989-12-31 (approx., series catalog) | [1] | 0 / 0 |
+| DASCH `mf` | 10-inch Metcalf Triplet | 1914-01-01 to 1956-12-31 (approx., series catalog) | [1] | 0 / 0 |
+| DASCH `ma` | 12-inch Metcalf Doublet | 1905-01-01 to 1953-12-31 (approx., series catalog) | [1] | 0 / 0 |
+| DASCH `a` | 24-inch Bruce Doublet | 1893-01-01 to 1950-11-01 (retired 1950 for ADH mount) | [1, 2] | 0 / 0 |
+| DASCH `adh` | 32–36 in Baker-Schmidt (Armagh-Dunsink-Harvard) | 1950-11-01 to 1981-12-31 (adh00001 = 1950-11-27) | [1, 2] | **4 / 0** |
+| DASCH `j` | 24–33 in Jewett Schmidt | 1941-01-01 to 1958-12-31 (approx., series catalog) | [1] | 0 / 0 |
+| DASCH `ir` / `rl` | 8-inch & 4-inch Ross-Lundin | 1934-01-01 to 1976-12-31 (approx., series catalog) | [1] | 0 / 0 |
+| DASCH `b` | 8-inch Bache Doublet | 1885-01-01 to 1955-12-31 (approx., series catalog) | [1] | 0 / 0 |
+| DASCH `i` / `c` | 8-inch Draper Doublet / 11-inch Draper Refractor | 1887-01-01 to 1946-12-31 (approx., series catalog) | [1] | 0 / 0 |
+| DASCH `x` | 13-inch Boyden Refractor | 1887-01-01 to 1950-12-31 (approx., series catalog) | [1] | 0 / 0 |
+| DASCH `h` | 24-inch Clark Reflector | 1904-01-01 to 1937-12-31 (approx., series catalog) | [1] | 0 / 0 |
+| DASCH `ac`/`rh`/`br` | 1.5-in Cooke, 3-in Ross-Fecker, 8-in Brashear | Approx. series catalog bounds in code | [1] | 0 / 0 |
+| APPLAUSE `103` | 1m-Spiegelteleskop (Hamburg Bergedorf) | 1911-01-01 to 1998-12-31 (approx., APPLAUSE metadata) | [3] | 0 / 0 |
+| APPLAUSE `101`/`107`/`109` | Lippert-Astrograph, Doppel-Reflektor, Grosser Refraktor | Approx. APPLAUSE metadata bounds in code | [3] | 0 / 0 |
+| APPLAUSE `111`/`110`/`102` | Original Schmidt, Kleiner Schmidt II, Grosser Schmidt | Approx. APPLAUSE metadata bounds in code | [3] | 0 / 0 |
+| APPLAUSE `208`/`301` | Bamberg Northern Patrol Astrograph, Tartu 6-in Petzval | Approx. APPLAUSE metadata bounds in code | [3] | 0 / 0 |
 
-## Appendix B. Frozen commits and Amendment 2 files
+## Appendix B. Frozen commits, Amendment 2 files, and Amendment 1 reference check
 
 - **Repository:** https://github.com/tychocollins/presputnik-technosignatures
 - **Prior OSF Registration (Amendment 1):** https://doi.org/10.17605/OSF.IO/5PQDZ (584dda36f9441c9b83b0f06ad0cbf9ee1eb5f655)
+- **Errata / Reference Check on Amendment 1:** Audited preregistration_amendment1.pdf (and repository documentation; no README exists): Amendment 1 contains zero formal bibliographic citations, so no errata to Amendment 1 are required.
 - **Frozen Extraction & Filter Code Commit (Unchanged):** a41c00421f968b1c0c46f75c7c765b4406da72c0
-- **Amendment 2 Realized-Sample Calibration & Date-Sanity Commit:** a2e725d954c974f07e48ad9b554e7d2c9bf51e71
+- **Amendment 2 Realized-Sample Calibration & Date-Sanity Commit:** 822aa05aab17570fec03b2c50fba7d3463f32091
 - **Amendment 2 Files:** src/amendment2_power_calibration.py, data/processed/amendment2_realized_power_calibration.csv, data/processed/phase2b_step1_qc_fairness.csv, reports/methods_log.md
